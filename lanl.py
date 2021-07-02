@@ -3,7 +3,8 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import sklearn
+from collections import Counter
+from scipy.sparse import coo_matrix
 from scipy.stats import norm
 from scipy.sparse.linalg import svds,eigsh
 import random
@@ -40,7 +41,6 @@ A_usersip = direct_sparse_A(data_usersip)
 
 
 
-
 #functions by zhu to find d
 def zhu(d):
     p = len(d)
@@ -59,87 +59,6 @@ def iterate_zhu(d,x=3):
         results[i+1] = results[i] + zhu(d[results[i]:])[1]
     return results
 
-U1,eigval1,V1 = svds(A_userdip,k=5000)
-plt.figure(figsize=(7,5))
-plot_d = 5000
-plt.scatter(np.linspace(1,plot_d,plot_d),eigval1[::-1][:plot_d],s=2)
-plt.vlines(x=39,ymin=0,ymax=200,linestyle='dashed',color='r')
-plt.show()
-plt.figure(figsize=(7,5))
-plot_d = 100
-plt.scatter(np.linspace(1,plot_d,plot_d),eigval1[::-1][:plot_d],s=2)
-plt.vlines(x=39,ymin=0,ymax=200,linestyle='dashed',color='r')
-plt.show()
-
-#choose d=39
-U_userdip,eigval_userdip,V_userdip = svds(A_userdip,k=39)
-
-
-#construct edge feature: using Hadarmard
-edge_feature_hadarmard = np.zeros(A_userdip.shape)
-for i in range(12222):
-    u_i = U_userdip[i,:]
-    for j in range(5047):
-        v_j = V_userdip[:,j]
-        edge_feature_hadarmard[i,j] = np.dot(u_i,v_j) 
-
-#flattent the matrix
-flatten_edge_feature_hadarmard=edge_feature_hadarmard.reshape(edge_feature_hadarmard.size,1)
-flatten_A_userdip = A_userdip.todense()
-flatten_A_userdip = np.array(flatten_A_userdip).reshape(edge_feature_hadarmard.size,1)
-#combine explanory matrix and its label
-userdip_set = np.hstack((flatten_edge_feature_hadarmard,flatten_A_userdip))
-
-
-#find index of 1 and 0 separately (time-consuming algorithm)
-index1 = np.array([])
-index0 = np.array([])
-
-for i in range(len(userdip_set)):
-    if flatten_A_userdip[i]==1:
-        index1 = np.append(index1,i)
-    else:
-        index0 = np.append(index0,i)
-
-
-#using dictionary (incomplete)
-#dictionary of pair and label 1/0
-dict1 = {str(i):flatten_A_userdip[i] for i in range(len(flatten_A_userdip)) }
-#dictionary of pair and edge feature
-dict2 = {str(i):flatten_edge_feature_hadarmard[i] for i in range(len(flatten_edge_feature_hadarmard)) }
-
-def get_dict_key(dic, value):
-    keys = list(dic.keys())
-    values = list(dic.values())
-    idx = values.index(value)
-    key = keys[idx]
-    return key
-
-
-#construct training set and test set:
-def construct_train_test(data,index1,index0,split_ratio=0.7):
-    
-    #ensure there are same number of label1 and label0
-    chose_index0 = index0[random.sample(range(len(index0)),len(index1))]
-    
-    #combine two types of label index
-    index_set = np.hstack((chose_index0,index1))
-    random.shuffle(index_set) #shuffle the data
-    
-    #chosen dataset:
-    chosen_set = np.zeros((len(index_set),2))
-    for i in range(len(index_set)):
-        idx = index_set[i]
-        chosen_set[i,:] = data[int(idx),:]
-    
-    #split into training set and test set
-    split_index = int(len(index_set)*split_ratio)
-    training_set = chosen_set[:split_index,:]
-    test_set = chosen_set[split_index:,:]
-    
-    return training_set[:,0].reshape(-1,1),training_set[:,1],test_set[:,0].reshape(-1,1),test_set[:,1]
-
-x_train,y_train,x_test,y_test = construct_train_test(userdip_set,index1,index0)
 
 #using random forest:
 def compute_auc(y, pred_y):
@@ -159,7 +78,6 @@ def rf_classfier(x_train,y_train,x_test,y_test):
   
     return roc_auc1,roc_auc2
 
-rf_classfier(x_train,y_train,x_test,y_test)
 
 #using logit regression 
 def lr_classfier(x_train,y_train,x_test,y_test):
@@ -174,5 +92,127 @@ def lr_classfier(x_train,y_train,x_test,y_test):
   
     return roc_auc1,roc_auc2
 
+##################################
+# Work with Two Adjacency Matrix #
+##################################
+
+
+#construct A_train and A_test for userdip
+#convert edge information into list
+edge_array= np.array(data_userdip)
+edge_list=list(edge_array)
+A_train = Counter()
+A_test = Counter()
+#take t=56 as threshold
+for link in edge_list:
+    if link[2] <= 56:
+        A_train[link[0],link[1]] = 1
+    else:
+        A_test[link[0],link[1]] = 1
+#construct adjacency matrix in the form of sparse matrix
+def counter2A(A):
+    #A is a counter
+    A_keys = np.array(list(A.keys()))
+    m = np.max(A_keys[:,0])+1
+    n = np.max(A_keys[:,1])+1
+    A_mat = coo_matrix((np.ones(A_keys.shape[0]), (A_keys[:,0], A_keys[:,1])), shape=(m, n))
+    return A_mat
+    
+A_train_mat = counter2A(A_train)
+A_test_mat = counter2A(A_test)
+
+#determine dimension of embedding
+U_train,eigval_train,V_train = svds(A_train_mat,k=500)
+iterate_zhu(eigval_train[::-1],x=5)
+plt.figure(figsize=(7,5))
+plot_d = 500
+plt.scatter(np.linspace(1,plot_d,plot_d),eigval_train[::-1][:plot_d],s=2)
+plt.vlines(x=25,ymin=0,ymax=200,linestyle='dashed',color='r')
+plt.vlines(x=83,ymin=0,ymax=200,linestyle='dashed',color='r')
+plt.vlines(x=194,ymin=0,ymax=200,linestyle='dashed',color='r')
+plt.vlines(x=310,ymin=0,ymax=200,linestyle='dashed',color='r')
+plt.show()
+
+#use d=25 for training set
+U_train,eigval_train,V_train = svds(A_train_mat,k=25)
+#scale with square root of eigvenvalues
+U_train = U_train @ np.diag(np.sqrt(eigval_train))
+V_train = np.diag(np.sqrt(eigval_train)) @ V_train
+
+#use d=25 for test set
+U_test,eigval_test,V_test = svds(A_test_mat,k=25)
+#scale with square root of eigvenvalues
+U_test = U_test @ np.diag(np.sqrt(eigval_test))
+V_test = np.diag(np.sqrt(eigval_test)) @ V_test
+
+#resampling to have same number of 0 and 1
+def resampling(A,U,V,size_multiplier = 2):
+    ## Sample of the negative class
+    A_keys = np.array(list(A.keys()))
+    m = np.max(A_keys[:,0])+1
+    n = np.max(A_keys[:,1])+1
+    n_edges = len(A)
+    negative_class = np.zeros((int(size_multiplier * n_edges),2))
+    negative_class[:,0] = np.random.choice(m, size=negative_class.shape[0])
+    negative_class[:,1] = np.random.choice(n, size=negative_class.shape[0])
+    ## delete repeated pairs
+    negative_class = np.unique(negative_class,axis=0)
+    ## convert into counter
+    negative_class_counter = Counter()
+    for pair in list(negative_class):
+        negative_class_counter[pair[0],pair[1]] = 0
+    ## Check that the sampled elements effectively correspond to the negative class
+    negative_class_indices = np.array([pair not in A for pair in negative_class_counter])
+    negative_class = negative_class[negative_class_indices]
+    return negative_class
+
+#use hadamard to construct edge feature
+def ef_hadamard(A,U,V,negative_class):
+    n_edges = len(A)
+    ## Calculate the scores for negative_class
+    scores_negative_class = []
+    for pair in negative_class[:n_edges,:]:
+        scores_negative_class += [U[int(pair[0]),:]*V[:,int(pair[1])] ]
+    ## Calculate the scores for positive_class
+    scores_positive_class = []
+    for pair in A:
+        scores_positive_class += [U[int(pair[0]),:]*V[:,int(pair[1])] ]
+    #combine for x and y
+    x = np.vstack((np.array(scores_negative_class),np.array(scores_positive_class)))
+    y = np.hstack((np.zeros(len(scores_negative_class)),np.ones(len(scores_positive_class))))
+    return x,y
+    
+#use average to construct edge feature
+def ef_average(A,U,V,negative_class):
+    n_edges = len(A)
+    ## Calculate the scores for negative_class
+    scores_negative_class = []
+    for pair in negative_class[:n_edges,:]:
+        scores_negative_class += [(U[int(pair[0]),:]+V[:,int(pair[1])])*0.5]
+    ## Calculate the scores for positive_class
+    scores_positive_class = []
+    for pair in A:
+        scores_positive_class += [(U[int(pair[0]),:]+V[:,int(pair[1])])*0.5]
+    #combine for x and y
+    x = np.vstack((np.array(scores_negative_class),np.array(scores_positive_class)))
+    y = np.hstack((np.zeros(len(scores_negative_class)),np.ones(len(scores_positive_class))))
+    return x,y
+
+#using Hadamard
+#construct training set based on A_train
+train_negative_class = resampling(A_train,U_train,V_train)
+x_train,y_train = ef_hadamard(A_train,U_train,V_train,train_negative_class)
+#construct test set based on A_test
+test_negative_class = resampling(A_test,U_test,V_test)
+x_test,y_test = ef_hadamard(A_test,U_test,V_test,test_negative_class)
+rf_classfier(x_train,y_train,x_test,y_test)
 lr_classfier(x_train,y_train,x_test,y_test)
 
+
+#using average
+train_negative_class = resampling(A_train,U_train,V_train)
+x_train,y_train = ef_average(A_train,U_train,V_train,train_negative_class)
+test_negative_class = resampling(A_test,U_test,V_test)
+x_test,y_test = ef_average(A_test,U_test,V_test,test_negative_class)
+print(rf_classfier(x_train,y_train,x_test,y_test))
+print(lr_classfier(x_train,y_train,x_test,y_test))
