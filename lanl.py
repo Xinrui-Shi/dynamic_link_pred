@@ -216,3 +216,45 @@ test_negative_class = resampling(A_test,U_test,V_test)
 x_test,y_test = ef_average(A_test,U_test,V_test,test_negative_class)
 print(rf_classfier(x_train,y_train,x_test,y_test))
 print(lr_classfier(x_train,y_train,x_test,y_test))
+
+
+#random dot product graph RDPG
+def rdpg(A,U,V,negative_class):
+    n_edges = len(A)
+    
+    ## test shape of U and V
+    m = U.shape[0]-1
+    n = V.shape[1]-1
+    
+    ## Calculate the scores for negative_class
+    scores_negative_class = []
+    for pair in negative_class[:n_edges,:]:
+        if int(pair[0]) > m:
+             continue
+        if int(pair[1]) > n:
+             continue
+        scores_negative_class += [np.dot(U[int(pair[0]),:],V[:,int(pair[1])]) ]
+    ## Calculate the scores for positive_class
+    scores_positive_class = []
+    for pair in A:
+        if int(pair[0]) > m:
+             continue
+        if int(pair[1]) > n:
+             continue
+        scores_positive_class += [np.dot(U[int(pair[0]),:],V[:,int(pair[1])]) ]
+    #combine for x and y
+    x = np.concatenate((np.array(scores_negative_class),np.array(scores_positive_class)))
+    y = np.concatenate((np.zeros(len(scores_negative_class)),np.ones(len(scores_positive_class))))
+    return x,y
+
+auc_pred= []
+l=100
+for i in range(l):
+    negative_class_A_test = resampling(A_test)
+    x,y=rdpg(A_test,U_train,V_train,negative_class_A_test)
+    auc_pred.append(sklearn.metrics.roc_auc_score(y,x))
+
+plt.plot(np.linspace(1,100,100),auc_pred,'o-')
+plt.xlabel('Times')
+plt.ylabel('AUC')
+plt.show()
