@@ -110,16 +110,22 @@ for link in edge_list:
     else:
         A_test[link[0],link[1]] = 1
 #construct adjacency matrix in the form of sparse matrix
-def counter2A(A):
+def counter2A(A,m=None,n=None):
     #A is a counter
     A_keys = np.array(list(A.keys()))
-    m = np.max(A_keys[:,0])+1
-    n = np.max(A_keys[:,1])+1
+    if m is None:
+        m = np.max(A_keys[:,0])+1
+    if n is None:
+        n = np.max(A_keys[:,1])+1
     A_mat = coo_matrix((np.ones(A_keys.shape[0]), (A_keys[:,0], A_keys[:,1])), shape=(m, n))
     return A_mat
     
-A_train_mat = counter2A(A_train)
-A_test_mat = counter2A(A_test)
+A_train_keys = np.array(list(A_train.keys()))
+A_test_keys = np.array(list(A_test.keys()))
+m = np.max([np.max(A_train_keys[:,0]),np.max(A_test_keys[:,0])])+1
+n = np.max([np.max(A_train_keys[:,1]),np.max(A_test_keys[:,1])])+1
+A_train_mat = counter2A(A_train,m,n)
+A_test_mat = counter2A(A_test,m,n)
 
 #determine dimension of embedding
 U_train,eigval_train,V_train = svds(A_train_mat,k=500)
@@ -222,25 +228,14 @@ print(lr_classfier(x_train,y_train,x_test,y_test))
 def rdpg(A,U,V,negative_class):
     n_edges = len(A)
     
-    ## test shape of U and V
-    m = U.shape[0]-1
-    n = V.shape[1]-1
-    
     ## Calculate the scores for negative_class
     scores_negative_class = []
     for pair in negative_class[:n_edges,:]:
-        if int(pair[0]) > m:
-             continue
-        if int(pair[1]) > n:
-             continue
         scores_negative_class += [np.dot(U[int(pair[0]),:],V[:,int(pair[1])]) ]
+        
     ## Calculate the scores for positive_class
     scores_positive_class = []
     for pair in A:
-        if int(pair[0]) > m:
-             continue
-        if int(pair[1]) > n:
-             continue
         scores_positive_class += [np.dot(U[int(pair[0]),:],V[:,int(pair[1])]) ]
     #combine for x and y
     x = np.concatenate((np.array(scores_negative_class),np.array(scores_positive_class)))
