@@ -5,7 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.sparse.linalg import svds
 from sklearn.metrics import roc_auc_score
-#import functions from filessx
+#import functions from files
 import lanl_function as lanl
 import zhu
 
