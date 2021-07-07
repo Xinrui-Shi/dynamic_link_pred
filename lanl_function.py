@@ -12,6 +12,7 @@ from scipy.sparse import coo_matrix
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_curve, auc
+from scipy.sparse.linalg import svds,eigsh
 
 
 
@@ -39,15 +40,16 @@ def counter_A(data,multiple = None,direct=True):
     #mutiple adjacency matrix
     A_t ={}
     time_series = np. unique(edge_array[:,2])
+    
     for t in time_series:
-        A_t[t] = Counter()
+        A_t[t-np.min(time_series)] = Counter()
         
     for link in edge_list:
         if direct:
-            A_t[link[2]][link[0],link[1]] = 1
+            A_t[link[2]-np.min(time_series)][link[0],link[1]] = 1
         else:
-            A_t[link[2]][link[0],link[1]] = 1
-            A_t[link[2]][link[1],link[0]] = 1
+            A_t[link[2]-np.min(time_series)][link[0],link[1]] = 1
+            A_t[link[2]-np.min(time_series)][link[1],link[0]] = 1
     return A_t
                        
 
@@ -190,8 +192,44 @@ def lr_classfier(x_train,y_train,x_test,y_test):
     return roc_auc1,roc_auc2
 
 
+########
+# DASE #
+########
+def dase(A,d):
+    U,eigval,V_T = svds(A,k=d)
+    sqrt_eigval = np.diag(np.sqrt(abs(eigval)))
+    X = U @ sqrt_eigval
+    Y = V_T.T @ sqrt_eigval
+    return X,Y
+    
 
 
+########
+# MASE #
+########
+def mase_direct(A_t,d):
+    #apply DASE
+    for t in range(len(A_t)):
+        hat_X,hat_Y = dase(A_t[t],d)
+        if t==0:
+            til_X = hat_X
+            til_Y = hat_Y
+        else:
+            til_X = np.hstack((til_X,hat_X))
+            til_Y = np.hstack((til_Y,hat_Y))
+    
+    #apply SVD 
+    U_X,eig_X,V_X = svds(til_X,k=d)
+    U_Y,eig_Y,V_Y = svds(til_Y,k=d)
+    
+    #compute R_t
+    R_t = {}
+    for t in range(len(A_t)):
+        R_t[t] = U_X.T @ A_t[t]@  U_Y
+        
+    return R_t
+        
+        
 
 
 
