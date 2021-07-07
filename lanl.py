@@ -5,7 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.sparse.linalg import svds
 from sklearn.metrics import roc_auc_score
-#import functions from filessx
+#import functions from files
 import lanl_function as lanl
 import zhu
 
@@ -57,7 +57,7 @@ plt.vlines(x=194,ymin=0,ymax=200,linestyle='dashed',color='r')
 plt.vlines(x=310,ymin=0,ymax=200,linestyle='dashed',color='r')
 plt.xlabel('dimensions')
 plt.ylabel('eigvenvalues')
-plt.plot('Plot of eigenvalues by SVD')
+plt.title('Plot of eigenvalues by SVD')
 plt.show()
 
 #use d=25 for training set
@@ -94,6 +94,60 @@ plt.xlabel('Size Multiplier')
 plt.ylabel('AUC score')
 plt.title('The AUC score using RGPD via different size_multiplier')
 plt.show()
+
+
+########################################
+# Work with Multiple Adjacency Matrices#
+########################################
+
+#construct adjacency matrix for time 1 to 90 days
+A = lanl.counter_A(data_userdip,multiple = True,direct=True)
+m,n = lanl.find_dimension(data_userdip) #find dimension of adjacency matrix
+A_mat = {}
+
+for i in range(len(A)):
+    A_mat[i] = lanl.counter2A(A[i],m,n)
+
+#determine dimension d of embedding 
+#choose t=56 as threshold
+for i in range(56):
+    if i==0:
+        A_average = A_mat[0]
+    else:
+        A_average += A_mat[i] 
+
+A_average = A_average/56
+U_av,eigval_av,V_av_T = svds(A_average,k=500)
+zhu_d=zhu.iterate_zhu(eigval_av[::-1],x=5)#use d=22
+plt.figure(figsize=(7,5))
+plot_d = 500
+plt.scatter(np.linspace(1,plot_d,plot_d),eigval_av[::-1],s=2)
+plt.vlines(x=zhu_d[1],ymin=0,ymax=np.max(eigval_av),linestyle='dashed',color='r')
+plt.vlines(x=zhu_d[2],ymin=0,ymax=np.max(eigval_av),linestyle='dashed',color='r')
+plt.vlines(x=zhu_d[3],ymin=0,ymax=np.max(eigval_av),linestyle='dashed',color='r')
+plt.vlines(x=zhu_d[4],ymin=0,ymax=np.max(eigval_av),linestyle='dashed',color='r')
+plt.xlabel('dimensions')
+plt.ylabel('eigvenvalues')
+plt.title('Plot of eigenvalues by SVD')
+plt.show()
+
+
+
+#########
+# COSIE #
+#########
+
+#compute R_t using MASE for directed graph
+R = lanl.mase_direct(A_mat,22)
+
+
+
+
+
+
+
+
+
 
 
 
