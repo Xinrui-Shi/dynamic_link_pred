@@ -24,12 +24,11 @@ from scipy.sparse.linalg import svds
 def counter_A(data,multiple = None,direct=True):
     #convert edge information into list
     edge_array= np.array(data)
-    edge_list=list(edge_array)
 
     #no threshold, one adjacency matrix
     if multiple is None:
         A = Counter()
-        for link in edge_list:
+        for link in edge_array:
             if direct:
                 A[link[0],link[1]] = 1
             else:
@@ -44,7 +43,7 @@ def counter_A(data,multiple = None,direct=True):
     for t in time_series:
         A_t[t-np.min(time_series)] = Counter()
         
-    for link in edge_list:
+    for link in edge_array:
         if direct:
             A_t[link[2]-np.min(time_series)][link[0],link[1]] = 1
         else:
@@ -121,11 +120,25 @@ def compute_score(A_mat,B_mat,negative_class,positive_class):
     
     return x,y
 
-def rdpg(A,U,V,negative_class):
-
-    x,y = compute_score(U,V,negative_class,A)
-    
-    return x,y
+def rdpg(A,U,V,negative_class,return_label=True):
+    ## Calculate the scores for negative_class
+    scores_negative_class = []
+    ### %% FSP: Why negative_class[:n_edges,:]? It should simply be negative_class.
+    ## for pair in negative_class[:n_edges,:]:
+    for pair in negative_class:
+        scores_negative_class += [np.dot(U[int(pair[0]),:],V[:,int(pair[1])]) ]
+        
+    ## Calculate the scores for positive_class
+    scores_positive_class = []
+    for pair in A:
+        scores_positive_class += [np.dot(U[int(pair[0]),:],V[:,int(pair[1])]) ]
+    #combine for x and y
+    x = np.concatenate((np.array(scores_negative_class),np.array(scores_positive_class)))
+    if return_label:
+        y = np.concatenate((np.zeros(len(scores_negative_class)),np.ones(len(scores_positive_class))))
+        return x,y
+    else: 
+        return x
 
 
 ######################
@@ -208,6 +221,30 @@ def dase(A,d):
     X = U @ sqrt_eigval
     Y = V_T.T @ sqrt_eigval
     return X,Y
+
+#######
+# AIP #
+#######
+def aip(A,X,Y,negative_class,weight=None):
+    # X_t and Y_t are dictionary
+    # A is counter
+    t = len(X)
+    
+    if weight is None:
+        weight = np.ones(t)/t
+    else:
+        weight /= np.sum(weight)
+    
+    for i in range(t):
+        if i==0:
+            x_sum,y = rdpg(A,X[i],Y[i].T,negative_class)
+        else:
+            x = rdpg(A,X[i],Y[i].T,negative_class,return_label=False)  
+            x_sum += weight[i]*x
+            
+    return x_sum, y
+
+
     
 
 
@@ -254,7 +291,7 @@ def average_mat(A,length=None):
 
 def cosie_average(A_pred,X,Y,R_average,negative_class):
     XR = X @ R_average
-    x,y=compute_score(XR,Y.T,negative_class,A_pred)
+    x,y = rdpg(A_pred,XR,Y.T,negative_class)
     
     return x,y
 
