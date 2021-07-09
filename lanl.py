@@ -81,15 +81,15 @@ plt.ylabel('AUC score')
 plt.title('The AUC score of userdip data using RGPD (using A_train)')
 plt.show()
 
-#repeating the resampling for size_multiplier = 1,.....100
-auc_pred2= []
-l=50
-for i in range(1,l+1):
-    negative_class_A_test = lanl.resampling(A_test,size_multiplier = i)
-    x,y=lanl.rdpg(A_test,U_train,V_train,negative_class_A_test)
-    auc_pred2.append(roc_auc_score(y,x))
-
-plt.plot(np.linspace(1,l,l),auc_pred2,'o-')
+#repeating the resampling for size_multiplier = 1,.....20
+for j in range(10):
+   auc_pred2= []
+   l=20
+   for i in range(1,l+1):
+       negative_class_A_test = lanl.resampling(A_test,size_multiplier = i)
+       x,y=lanl.rdpg(A_test,U_train,V_train,negative_class_A_test)
+       auc_pred2.append(roc_auc_score(y,x))
+   plt.plot(np.linspace(1,l,l),auc_pred2,'o-')
 plt.xlabel('Size Multiplier')
 plt.ylabel('AUC score')
 plt.title('The AUC score using RGPD via different size_multiplier')
@@ -108,7 +108,7 @@ A_mat = {}
 for i in range(len(A)):
     A_mat[i] = lanl.counter2A(A[i],m,n)
 
-#determine dimension d of embedding 
+#determine dimension d of embedding: use d from average of A_t
 #choose t=56 as threshold
 for i in range(56):
     if i==0:
@@ -138,17 +138,50 @@ plt.show()
 #########
 
 #compute R_t using MASE for directed graph
-R = lanl.mase_direct(A_mat,22)
+hat_X,hat_Y,R = lanl.mase_direct(A_mat,22)
+
+#compute R_average
+R_average = lanl.average_mat(R,length=56)
+
+#resampling for t=57
+negative_class = lanl.resampling(A[56],size_multiplier = 2)
+x_cosie,y_cosie = lanl.cosie_average(A[56],hat_X,hat_Y,R_average,negative_class)
+
+#compute auc for prediction of A at t=57, repeat 100 times
+auc_pred3= []
+l=100
+for i in range(l):
+    negative_class = lanl.resampling(A[56],size_multiplier = 2)
+    x_cosie,y_cosie = lanl.cosie_average(A[56],hat_X,hat_Y,R_average,negative_class)
+    auc_pred3.append(roc_auc_score(y_cosie,x_cosie))
+
+plt.plot(np.linspace(1,l,l),auc_pred3,'o-')
+plt.xlabel('Times')
+plt.ylabel('AUC score')
+plt.title('The AUC score of userdip data using COSIE')
+plt.show()
+
+
+#repeating the resampling for size_multiplier = 1,.....30
+for j in range(10):
+   auc_pred4= []
+   l=30
+   for i in range(1,l+1):
+    negative_class = lanl.resampling(A[56],size_multiplier = 2)
+    x_cosie,y_cosie = lanl.cosie_average(A[56],hat_X,hat_Y,R_average,negative_class)
+    auc_pred4.append(roc_auc_score(y_cosie,x_cosie))
+   plt.plot(np.linspace(1,l,l),auc_pred4,'o-')
+plt.xlabel('Size Multiplier')
+plt.ylabel('AUC score')
+plt.title('The AUC score of userdip data using COSIE via different size_multiplier')
+plt.show()
 
 
 
-
-
-
-
-
-
-
+    
+    
+    
+    
 
 
 
