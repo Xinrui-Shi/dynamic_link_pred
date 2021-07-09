@@ -12,7 +12,7 @@ from scipy.sparse import coo_matrix
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_curve, auc
-from scipy.sparse.linalg import svds,eigsh
+from scipy.sparse.linalg import svds
 
 
 
@@ -103,21 +103,28 @@ def resampling(A,size_multiplier = 2):
 ############################
 # Random Dot Product Graph #
 ############################
-def rdpg(A,U,V,negative_class):
-    n_edges = len(A)
-    
+def compute_score(A_mat,B_mat,negative_class,positive_class): 
+        
     ## Calculate the scores for negative_class
     scores_negative_class = []
-    for pair in negative_class[:n_edges,:]:
-        scores_negative_class += [np.dot(U[int(pair[0]),:],V[:,int(pair[1])]) ]
+    for pair in negative_class:
+        scores_negative_class += [np.dot(A_mat[int(pair[0]),:],B_mat[:,int(pair[1])]) ]
         
     ## Calculate the scores for positive_class
     scores_positive_class = []
-    for pair in A:
-        scores_positive_class += [np.dot(U[int(pair[0]),:],V[:,int(pair[1])]) ]
+    for pair in positive_class:
+        scores_positive_class += [np.dot(A_mat[int(pair[0]),:],B_mat[:,int(pair[1])]) ]
+        
     #combine for x and y
     x = np.concatenate((np.array(scores_negative_class),np.array(scores_positive_class)))
     y = np.concatenate((np.zeros(len(scores_negative_class)),np.ones(len(scores_positive_class))))
+    
+    return x,y
+
+def rdpg(A,U,V,negative_class):
+
+    x,y = compute_score(U,V,negative_class,A)
+    
     return x,y
 
 
@@ -126,10 +133,10 @@ def rdpg(A,U,V,negative_class):
 ######################
 #use hadamard to construct edge feature
 def ef_hadamard(A,U,V,negative_class):
-    n_edges = len(A)
+
     ## Calculate the scores for negative_class
     scores_negative_class = []
-    for pair in negative_class[:n_edges,:]:
+    for pair in negative_class:
         scores_negative_class += [U[int(pair[0]),:]*V[:,int(pair[1])] ]
     ## Calculate the scores for positive_class
     scores_positive_class = []
@@ -142,10 +149,10 @@ def ef_hadamard(A,U,V,negative_class):
     
 #use average to construct edge feature
 def ef_average(A,U,V,negative_class):
-    n_edges = len(A)
+
     ## Calculate the scores for negative_class
     scores_negative_class = []
-    for pair in negative_class[:n_edges,:]:
+    for pair in negative_class:
         scores_negative_class += [(U[int(pair[0]),:]+V[:,int(pair[1])])*0.5]
     ## Calculate the scores for positive_class
     scores_positive_class = []
@@ -227,7 +234,43 @@ def mase_direct(A_t,d):
     for t in range(len(A_t)):
         R_t[t] = U_X.T @ A_t[t]@  U_Y
         
-    return R_t
+    return U_X,U_Y,R_t
+
+#########
+# COSIE #
+#########
+def average_mat(A,length=None):
+    if length is None:
+        length = len(A)
+    
+    for i in range(length):
+        if i==0:
+            A_average = A[0]
+        else:
+            A_average += A[i] 
+            
+    return A_average/length
+
+
+def cosie_average(A_pred,X,Y,R_average,negative_class):
+    XR = X @ R_average
+    x,y=compute_score(XR,Y.T,negative_class,A_pred)
+    
+    return x,y
+
+
+    
+
+
+    
+
+
+
+
+
+
+
+
         
         
 
