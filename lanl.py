@@ -71,6 +71,7 @@ V_train = np.diag(np.sqrt(eigval_train)) @ V_train
 auc_pred= []
 l=100
 for i in range(l):
+    print('\rIteration: ', str(i+1), ' / ', str(l), sep='', end='')
     negative_class_A_test = lanl.resampling(A_test,size_multiplier = 2)
     x,y=lanl.rdpg(A_test,U_train,V_train,negative_class_A_test)
     auc_pred.append(roc_auc_score(y,x))
@@ -81,15 +82,25 @@ plt.ylabel('AUC score')
 plt.title('The AUC score of userdip data using RGPD (using A_train)')
 plt.show()
 
-#repeating the resampling for size_multiplier = 1,.....20
-for j in range(10):
-   auc_pred2= []
-   l=20
-   for i in range(1,l+1):
-       negative_class_A_test = lanl.resampling(A_test,size_multiplier = i)
-       x,y=lanl.rdpg(A_test,U_train,V_train,negative_class_A_test)
-       auc_pred2.append(roc_auc_score(y,x))
-   plt.plot(np.linspace(1,l,l),auc_pred2,'o-')
+#repeating the resampling for size_multiplier = 0.1,0.2,0.5,1,2
+auc_pred2 = {} ## dictionary
+l = [0.1,0.2,0.5,1,2] ## list of resampling sizes
+n_iter = 10 ## number of iterations per resampling size
+## For each resampling size
+for i in l:
+    ## The 'value' of the dictionary for the 
+    auc_pred2[i] = []
+    ## Repeat for n_iter iterations
+    for _ in range(n_iter):
+        print('\rSize multiplier: ', str(i), '\tIteration: ', str(_+1), ' / ', str(n_iter), sep='', end='')
+        negative_class_A_test = lanl.resampling(A_test,size_multiplier = i)
+        x,y = lanl.rdpg(A_test,U_train,V_train,negative_class_A_test)
+        auc_pred2[i].append(roc_auc_score(y,x))
+
+## Plot each AUC as a line to show that the variance of the points decreases (or calculate the variance directly and plot the estimates)
+for j in range(len(l)):
+    plt.plot(j * np.ones(n_iter),auc_pred2[l[j]],'o-')
+
 plt.xlabel('Size Multiplier')
 plt.ylabel('AUC score')
 plt.title('The AUC score using RGPD via different size_multiplier')
@@ -132,6 +143,61 @@ plt.title('Plot of eigenvalues by SVD')
 plt.show()
 
 
+#######
+# AIP #
+#######
+X = {}
+Y = {}
+for t in range(56):
+    X_t,Y_t = lanl.dase(A_mat[t],d=22)
+    X[t] = X_t
+    Y[t] = Y_t
+
+#compute auc for prediction of A at t=57, repeat 100 times
+auc_pred5= []
+l=50
+for i in range(l):
+    print('\rIteration: ', str(i+1), ' / ', str(l), sep='', end='')
+    negative_class = lanl.resampling(A[56],size_multiplier = 1)
+    x,y = lanl.aip(A[56],X,Y,negative_class)
+    auc_pred5.append(roc_auc_score(y,x))
+
+plt.plot(np.linspace(1,l,l),auc_pred5,'o-')
+plt.xlabel('Times')
+plt.ylabel('AUC score')
+plt.title('The AUC score of userdip data using AIP on Multiple Adjacency Matrice')
+plt.show()
+
+#repeating the resampling for size_multiplier = 0.1,0.2,0.5,1,2
+auc_pred6 = {} ## dictionary
+l = [0.1,0.2,0.5,1,2] ## list of resampling sizes
+n_iter = 10 ## number of iterations per resampling size
+## For each resampling size
+for i in l:
+    ## The 'value' of the dictionary for the 
+    auc_pred6[i] = []
+    ## Repeat for n_iter iterations
+    for _ in range(n_iter):
+        print('\rSize multiplier: ', str(i), '\tIteration: ', str(_+1), ' / ', str(n_iter), sep='', end='')
+        negative_class = lanl.resampling(A[56],size_multiplier = i)
+        x,y = lanl.aip(A[56],X,Y,negative_class)
+        auc_pred6[i].append(roc_auc_score(y,x))
+
+## Plot each AUC as a line to show that the variance of the points decreases (or calculate the variance directly and plot the estimates)
+for j in range(len(l)):
+    plt.plot(j * np.ones(n_iter),auc_pred6[l[j]],'o-')
+
+plt.xlabel('Size Multiplier')
+plt.ylabel('AUC score')
+plt.title('The AUC score of userdip data using AIP via different size_multiplier')
+plt.show()
+
+
+################
+# weighted AIP #
+################
+
+
 
 #########
 # COSIE #
@@ -143,14 +209,12 @@ hat_X,hat_Y,R = lanl.mase_direct(A_mat,22)
 #compute R_average
 R_average = lanl.average_mat(R,length=56)
 
-#resampling for t=57
-negative_class = lanl.resampling(A[56],size_multiplier = 2)
-x_cosie,y_cosie = lanl.cosie_average(A[56],hat_X,hat_Y,R_average,negative_class)
 
 #compute auc for prediction of A at t=57, repeat 100 times
 auc_pred3= []
 l=100
 for i in range(l):
+    print('\rIteration: ', str(i+1), ' / ', str(l), sep='', end='')
     negative_class = lanl.resampling(A[56],size_multiplier = 2)
     x_cosie,y_cosie = lanl.cosie_average(A[56],hat_X,hat_Y,R_average,negative_class)
     auc_pred3.append(roc_auc_score(y_cosie,x_cosie))
@@ -162,19 +226,36 @@ plt.title('The AUC score of userdip data using COSIE')
 plt.show()
 
 
-#repeating the resampling for size_multiplier = 1,.....30
-for j in range(10):
-   auc_pred4= []
-   l=30
-   for i in range(1,l+1):
-    negative_class = lanl.resampling(A[56],size_multiplier = 2)
-    x_cosie,y_cosie = lanl.cosie_average(A[56],hat_X,hat_Y,R_average,negative_class)
-    auc_pred4.append(roc_auc_score(y_cosie,x_cosie))
-   plt.plot(np.linspace(1,l,l),auc_pred4,'o-')
+
+#repeating the resampling for size_multiplier = 0.1,0.2,0.5,1,2
+auc_pred4 = {} ## dictionary
+l = [0.1,0.2,0.5,1,2] ## list of resampling sizes
+n_iter = 30 ## number of iterations per resampling size
+## For each resampling size
+for i in l:
+    ## The 'value' of the dictionary for the 
+    auc_pred4[i] = []
+    ## Repeat for n_iter iterations
+    for _ in range(n_iter):
+        print('\rSize multiplier: ', str(i), '\tIteration: ', str(_+1), ' / ', str(n_iter), sep='', end='')
+        negative_class = lanl.resampling(A[56],size_multiplier = i)
+        x_cosie,y_cosie = lanl.cosie_average(A[56],hat_X,hat_Y,R_average,negative_class)
+        auc_pred4[i].append(roc_auc_score(y_cosie,x_cosie))
+
+## Plot each AUC as a line to show that the variance of the points decreases (or calculate the variance directly and plot the estimates)
+for j in range(len(l)):
+    plt.plot(j * np.ones(n_iter),auc_pred4[l[j]],'o-')
+
 plt.xlabel('Size Multiplier')
 plt.ylabel('AUC score')
 plt.title('The AUC score of userdip data using COSIE via different size_multiplier')
 plt.show()
+
+
+
+
+
+
 
 
 
