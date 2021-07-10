@@ -196,6 +196,32 @@ plt.show()
 ################
 # weighted AIP #
 ################
+auc_pre7_uw= []
+auc_pre7_w99= []
+auc_pre7_w95= []
+#weights for 0.99^(56-t)
+weight99 = np.array([ 0.99**(56-t) for t in range(56)])
+weight95 = np.array([ 0.95**(56-t) for t in range(56)])
+l=50
+for i in range(l):
+    print('\rIteration: ', str(i+1), ' / ', str(l), sep='', end='')
+    negative_class = lanl.resampling(A[56],size_multiplier = 1)
+    #comparision with unweighted
+    x1,y1 = lanl.aip(A[56],X,Y,negative_class)
+    auc_pre7_uw.append(roc_auc_score(y1,x1))
+    x2,y2 = lanl.aip(A[56],X,Y,negative_class,weight=weight99)
+    auc_pre7_w99.append(roc_auc_score(y2,x2))
+    x3,y3 = lanl.aip(A[56],X,Y,negative_class,weight=weight95)
+    auc_pre7_w95.append(roc_auc_score(y3,x3))
+    
+plt.plot(np.linspace(1,l,l),auc_pre7_uw,'o-')
+plt.plot(np.linspace(1,l,l),auc_pre7_w99,'o-')
+plt.plot(np.linspace(1,l,l),auc_pre7_w95,'o-')
+plt.legend(['unweighted','weighted 0.99^(56-t)','weighted 0.95^(56-t)'])
+plt.xlabel('Times')
+plt.ylabel('AUC score')
+plt.title('The AUC score of userdip data using weighted AIP')
+plt.show()
 
 
 
