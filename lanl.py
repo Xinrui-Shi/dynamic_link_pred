@@ -233,7 +233,7 @@ plt.show()
 hat_X,hat_Y,R = lanl.mase_direct(A_mat,22)
 
 #compute R_average
-R_average = lanl.average_mat(R,length=56)
+R_average = lanl.average_mat(R,0,55)
 
 
 #compute auc for prediction of A at t=57, repeat 100 times
@@ -278,13 +278,60 @@ plt.title('The AUC score of userdip data using COSIE via different size_multipli
 plt.show()
 
 
+#prediction for t=57,58,....90
+
+#using first 56 adjacency matrices
+auc_pred8 = []
+for t in range(56,90):
+    print('\rIteration: ', str(t+1), ' / ', str(90), sep='', end='')
+    negative_class = lanl.resampling(A[t],size_multiplier = 2)
+    x_cosie,y_cosie = lanl.cosie_average(A[t],hat_X,hat_Y,R_average,negative_class)
+    auc_pred8.append(roc_auc_score(y_cosie,x_cosie))
+plt.plot(np.linspace(56,90,90-56),auc_pred8,'o-')
+plt.xlabel('Times')
+plt.ylabel('AUC score')
+plt.title('The AUC score of userdip data using COSIE for t=57,..90')
+plt.show()
+
+
+#using observed adjacency matrix t-55 to t-1 for prediction (average R)
+auc_pred9 =[]
+for t in range(56,90):
+    print('\rIteration: ', str(t+1), ' / ', str(90), sep='', end='')
+    negative_class = lanl.resampling(A[t],size_multiplier = 2)
+    R_average2 = lanl.average_mat(R,t-55,t)
+    x_cosie,y_cosie = lanl.cosie_average(A[t],hat_X,hat_Y,R_average2,negative_class)
+    auc_pred9.append(roc_auc_score(y_cosie,x_cosie))
+plt.plot(np.linspace(56,90,90-56),auc_pred9,'o-')
+plt.xlabel('Times')
+plt.ylabel('AUC score')
+plt.title('The AUC score of userdip data using COSIE for t=57,..90')
+plt.show()
+
+#using observed adjacency matrix t-55 to t-1 for prediction (not average R)
+auc_pred10 =[]
+for t in range(56,90):
+    print('\rIteration: ', str(t+1), ' / ', str(90), sep='', end='')
+    negative_class = lanl.resampling(A[t],size_multiplier = 2)
+    x_cosie,y_cosie = lanl.cosie_average(A[t],hat_X,hat_Y,R[t],negative_class)
+    auc_pred10.append(roc_auc_score(y_cosie,x_cosie))
+plt.plot(np.linspace(56,90,90-56),auc_pred10,'o-')
+plt.xlabel('Times')
+plt.ylabel('AUC score')
+plt.title('The AUC score of userdip data using COSIE for t=57,..90')
+plt.show()
 
 
 
-
-
-
-
+#comparision of approaches
+plt.plot(np.linspace(56,90,90-56),auc_pred8,'o-')
+plt.plot(np.linspace(56,90,90-56),auc_pred9,'o-')
+plt.plot(np.linspace(56,90,90-56),auc_pred10,'o-')
+plt.legend(['Method 1','Method 2','Method 3'])
+plt.xlabel('Times')
+plt.ylabel('AUC score')
+plt.title('Comparision of approaches')
+plt.show()
     
     
     
