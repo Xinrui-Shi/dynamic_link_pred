@@ -276,17 +276,19 @@ def mase_direct(A_t,d):
 #########
 # COSIE #
 #########
-def average_mat(A,length=None):
-    if length is None:
-        length = len(A)
-    
-    for i in range(length):
-        if i==0:
-            A_average = A[0]
+def average_mat(A,starting_idx=None,end_idx=None):
+    if starting_idx is None:
+            starting_idx = 0
+    if end_idx is None:
+            end_idx = len(A)-1
+            
+    for i in range(starting_idx,end_idx+1):
+        if i==starting_idx:
+            A_average = A[starting_idx]
         else:
             A_average += A[i] 
             
-    return A_average/length
+    return A_average/(end_idx+1-starting_idx)
 
 
 def cosie_average(A_pred,X,Y,R_average,negative_class):
