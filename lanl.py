@@ -196,28 +196,28 @@ plt.show()
 ################
 # weighted AIP #
 ################
-auc_pre7_uw= []
-auc_pre7_w99= []
-auc_pre7_w95= []
-#weights for 0.99^(56-t)
-weight99 = np.array([ 0.99**(56-t) for t in range(56)])
-weight95 = np.array([ 0.95**(56-t) for t in range(56)])
+auc_pred7 = {}#dictionary
+weight_idx = [1,0.99,0.98,0.97,0.96,0.95]
+
+#compute wieght
+weight_store = {}#dictionary
+for w in weight_idx:
+   weight_store[w] =  np.array([ w **(56-t) for t in range(56)])
+   auc_pred7[w] = [] 
+
 l=50
-for i in range(l):
-    print('\rIteration: ', str(i+1), ' / ', str(l), sep='', end='')
+for n in range(l):
+    print('\rIteration: ', str(n+1), ' / ', str(l), sep='', end='')
     negative_class = lanl.resampling(A[56],size_multiplier = 1)
-    #comparision with unweighted
-    x1,y1 = lanl.aip(A[56],X,Y,negative_class)
-    auc_pre7_uw.append(roc_auc_score(y1,x1))
-    x2,y2 = lanl.aip(A[56],X,Y,negative_class,weight=weight99)
-    auc_pre7_w99.append(roc_auc_score(y2,x2))
-    x3,y3 = lanl.aip(A[56],X,Y,negative_class,weight=weight95)
-    auc_pre7_w95.append(roc_auc_score(y3,x3))
+    for w in weight_idx:
+        x,y = lanl.aip(A[56],X,Y,negative_class,weight_store[w])
+        auc_pred7[w].append(roc_auc_score(y,x))
     
-plt.plot(np.linspace(1,l,l),auc_pre7_uw,'o-')
-plt.plot(np.linspace(1,l,l),auc_pre7_w99,'o-')
-plt.plot(np.linspace(1,l,l),auc_pre7_w95,'o-')
-plt.legend(['unweighted','weighted 0.99^(56-t)','weighted 0.95^(56-t)'])
+    
+for j in range(len(weight_idx)):
+    plt.plot(np.linspace(1,l,l),auc_pred7[weight_idx[j]],'o-')
+#plt.legend(['unweighted','weighted 0.99^(56-t)','weighted 0.98^(56-t)','weighted 0.97^(56-t)','weighted 0.96^(56-t)','weighted 0.95^(56-t)'])
+plt.legend(['1','0.99','0.98','0.97','0.96','0.95'])
 plt.xlabel('Times')
 plt.ylabel('AUC score')
 plt.title('The AUC score of userdip data using weighted AIP')
@@ -322,6 +322,23 @@ plt.title('The AUC score of userdip data using COSIE for t=57,..90')
 plt.show()
 
 
+auc_pred8 = []
+auc_pred9 =[]
+auc_pred10 =[]
+for t in range(56,90):
+    print('\rIteration: ', str(t+1), ' / ', str(90), sep='', end='')
+    negative_class = lanl.resampling(A[t],size_multiplier = 2)
+    #method1
+    x_cosie,y_cosie = lanl.cosie_average(A[t],hat_X,hat_Y,R_average,negative_class)
+    auc_pred8.append(roc_auc_score(y_cosie,x_cosie))
+    #method2
+    R_average2 = lanl.average_mat(R,t-55,t)
+    x_cosie,y_cosie = lanl.cosie_average(A[t],hat_X,hat_Y,R_average2,negative_class)
+    auc_pred9.append(roc_auc_score(y_cosie,x_cosie))
+    #method3
+    x_cosie,y_cosie = lanl.cosie_average(A[t],hat_X,hat_Y,R[t],negative_class)
+    auc_pred10.append(roc_auc_score(y_cosie,x_cosie))
+
 
 #comparision of approaches
 plt.plot(np.linspace(56,90,90-56),auc_pred8,'o-')
@@ -335,6 +352,26 @@ plt.show()
     
     
     
+#comparison of T=7,10 and 56
+auc_pred11 = {}
+period_T = [7,10,56]
+for T in period_T:
+    auc_pred11[T]=[]
+for t in range(56,90):
+    print('\rIteration: ', str(t+1), ' / ', str(90), sep='', end='')
+    negative_class = lanl.resampling(A[t],size_multiplier = 2)
+    for T in period_T:
+        R_average2 = lanl.average_mat(R,t-T+1,t)
+        x_cosie,y_cosie = lanl.cosie_average(A[t],hat_X,hat_Y,R_average2,negative_class)
+        auc_pred11[T].append(roc_auc_score(y_cosie,x_cosie))
+
+for j in range(len(period_T)):
+    plt.plot(np.linspace(56,90,90-56),auc_pred11[period_T[j]],'o-')
+plt.legend(['T=7','T=10','T=56'])
+plt.xlabel('Times')
+plt.ylabel('AUC score')
+plt.title('The AUC score of userdip data for different T')
+plt.show()    
     
 
 
