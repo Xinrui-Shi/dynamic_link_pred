@@ -254,7 +254,9 @@ def aip(A,X,Y,negative_class,weight=None):
 def mase_direct(A_t,d):
     #apply DASE
     for t in range(len(A_t)):
-        hat_X,hat_Y = dase(A_t[t],d)
+        U,eigval,V_T = svds(A_t[t],k=d)
+        hat_X = U
+        hat_Y = V_T.T
         if t==0:
             til_X = hat_X
             til_Y = hat_Y
