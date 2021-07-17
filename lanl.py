@@ -353,6 +353,7 @@ plt.show()
     
     
 #comparison of T=7,10 and 56
+#method 2
 auc_pred11 = {}
 period_T = [7,10,56]
 for T in period_T:
@@ -372,7 +373,74 @@ plt.xlabel('Times')
 plt.ylabel('AUC score')
 plt.title('The AUC score of userdip data for different T')
 plt.show()    
+     
+
+#alternative resampling method
+#combine all the linked pairs in T=1 to 56
+A_first56 = Counter() #counter
+for i in range(56):
+    A_first56 += A[i]
+#store all pair of them
+type2_pair = np.zeros((len(A_first56),2))  
+j=0  
+for pair in A_first56:
+    #print('\rIteration: ', str(j+1), ' / ', str(len(A_first56)), sep='', end='')
+    type2_pair[j,0] = pair[0]
+    type2_pair[j,1] = pair[1]
+    j+=1
     
+#previous link but not link at t= 57
+selected_idx = np.array([pair not in A[56] for pair in A_first56])    
+#selected all type1 pairs after deleting some linked pair at t=57
+type2_pair = type2_pair[selected_idx]
+
+
+#compare the two methods using COSIE
+auc_pred12= []
+auc_pred13= []
+l=50
+for i in range(l):
+    print('\rIteration: ', str(i+1), ' / ', str(l), sep='', end='')
+    negative_class = lanl.resampling(A[56],size_multiplier = 2)
+    #resampling method1
+    x1,y1= lanl.cosie_average(A[56],hat_X,hat_Y,R_average,negative_class)
+    auc_pred12.append(roc_auc_score(y1,x1))
+    #resampling method2
+    negative_class = np.vstack((negative_class,type2_pair))
+    x2,y2= lanl.cosie_average(A[56],hat_X,hat_Y,R_average,negative_class)
+    auc_pred13.append(roc_auc_score(y2,x2))
+
+plt.plot(np.linspace(1,l,l),auc_pred12,'o-')
+plt.plot(np.linspace(1,l,l),auc_pred13,'o-')
+plt.legend(['Method1','Method2'])
+plt.xlabel('Times')
+plt.ylabel('AUC score')
+plt.title('The AUC score of userdip data using COSIE to compare resampling method')
+plt.show()
+
+
+#compare the two methods using COSIE
+auc_pred12= []
+auc_pred13= []
+l=10
+for i in range(l):
+    print('\rIteration: ', str(i+1), ' / ', str(l), sep='', end='')
+    negative_class = lanl.resampling(A[56],size_multiplier = 1)
+    #resampling method1
+    x1,y1= lanl.aip(A[56],X,Y,negative_class)
+    auc_pred12.append(roc_auc_score(y1,x1))
+    #resampling method2
+    negative_class = np.vstack((negative_class,type2_pair))
+    x2,y2= lanl.aip(A[56],X,Y,negative_class)
+    auc_pred13.append(roc_auc_score(y2,x2))
+
+plt.plot(np.linspace(1,l,l),auc_pred12,'o-')
+plt.plot(np.linspace(1,l,l),auc_pred13,'o-')
+plt.legend(['Method1','Method2'])
+plt.xlabel('Times')
+plt.ylabel('AUC score')
+plt.title('The AUC score of userdip data using AIP to compare resampling method')
+plt.show()
 
 
 
