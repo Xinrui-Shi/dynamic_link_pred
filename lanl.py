@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.sparse.linalg import svds
 from sklearn.metrics import roc_auc_score
+from sklearn.linear_model import LinearRegression
 #import functions from files
 import lanl_function as lanl
 import zhu
@@ -223,7 +224,139 @@ plt.ylabel('AUC score')
 plt.title('The AUC score of userdip data using weighted AIP')
 plt.show()
 
+#plot of geometric weights
+for w in weight_idx:
+   plt.plot(np.linspace(1,56,56),weight_store[w]/np.sum(weight_store[w]))
+plt.legend(['1','0.99','0.98','0.97','0.96','0.95'])
+plt.title('Plot of geometric weights')
+plt.show()
 
+#expontial weighting
+auc_pred14 = {}#dictionary
+exp_weight_idx = [0,0.1,0.2,0.3,0.4,0.5]
+exp_weight = {}#dictionary
+for w in exp_weight_idx:
+   exp_weight[w] =  np.array([ np.exp(w*t) for t in range(56)])
+   auc_pred14[w] = []
+l=10
+for n in range(l):
+    print('\rIteration: ', str(n+1), ' / ', str(l), sep='', end='')
+    negative_class = lanl.resampling(A[56],size_multiplier = 1)
+    for w in exp_weight_idx:
+        x,y = lanl.aip(A[56],X,Y,negative_class,exp_weight[w])
+        auc_pred14[w].append(roc_auc_score(y,x))
+        
+for j in range(len(exp_weight_idx)):
+    plt.plot(np.linspace(1,l,l),auc_pred14[exp_weight_idx[j]],'o-')
+    
+#plt.legend(['unweighted','weighted 0.99^(56-t)','weighted 0.98^(56-t)','weighted 0.97^(56-t)','weighted 0.96^(56-t)','weighted 0.95^(56-t)'])
+plt.legend(['0','0.1','0.2','0.3','0.4','0.5'])
+plt.xlabel('Times')
+plt.ylabel('AUC score')
+plt.title('The AUC score of userdip data using exponential weighted AIP')
+plt.show()
+
+#plot of exponential weights
+for w in exp_weight_idx:
+   plt.plot(np.linspace(1,56,56),exp_weight[w]/np.sum(exp_weight[w]))
+plt.legend(['0','0.1','0.2','0.3','0.4','0.5'])
+plt.title('Plot of expotential weights')
+plt.show()
+
+
+
+
+#more weighting for previous Sunday if want to predict for Sunday
+non_week_weight = np.array([ 0.99 **(56-t) for t in range(56)])
+#multiple parameter for corresponding day
+week_idx = np.array([1,1.2,1.4,1.6,1.8,2.0])
+week_weight_param = np.ones((len(week_idx),56))
+for i in range(56):
+    if (i+1)%7==1:
+        week_weight_param[:,i] = week_idx
+
+week_weight = {} #dictionary
+for k in range(len(week_idx)):
+    week_weight[week_idx[k]] = week_weight_param[k,:] * non_week_weight
+
+auc_pred15 = {}
+auc_pred15[0]=[] #store AUC of AIP 
+l=10
+for w in week_idx:
+    auc_pred15[w]=[]
+for n in range(l):
+    print('\rIteration: ', str(n+1), ' / ', str(l), sep='', end='')
+    negative_class = lanl.resampling(A[56],size_multiplier = 1)
+    #compute AUC for unweighted AIP
+    x1,y1=lanl.aip(A[56],X,Y,negative_class)
+    auc_pred15[0].append(roc_auc_score(y1,x1))
+    #for weighted AIP
+    for w in week_idx:
+        x2,y2 = lanl.aip(A[56],X,Y,negative_class,week_weight[w])
+        auc_pred15[w].append(roc_auc_score(y2,x2))
+
+#plot of AUC curves
+for j in range(len(week_idx )):
+    plt.plot(np.linspace(1,l,l),auc_pred15[week_idx[j]],'o-')
+plt.plot(np.linspace(1,l,l),auc_pred15[0],'o-')
+    
+#plt.legend(['unweighted','weighted 0.99^(56-t)','weighted 0.98^(56-t)','weighted 0.97^(56-t)','weighted 0.96^(56-t)','weighted 0.95^(56-t)'])
+plt.legend(['1','1.2','1.4','1.6','1.8','2.0','unweighted'])
+plt.xlabel('Times')
+plt.ylabel('AUC score')
+plt.title('The AUC score of userdip data using weekly weighted AIP')
+plt.show()
+
+
+#plot of weekly weights
+for w in week_idx:
+    plt.plot(np.linspace(1,56,56),week_weight[w]/np.sum(week_weight[w]))
+plt.hlines(xmin=1,xmax=56,y=1/56)
+plt.legend(['1','1.2','1.4','1.6','1.8','2.0','unweighted'])
+plt.title('Plot of weekly weights')
+plt.show()
+
+
+#linear/arithmetic weights
+linear_model  = LinearRegression()
+x = np.linspace(1,56,56).reshape(-1, 1)
+#find linear regression of geometric weight of 0.99
+y1 = non_week_weight.reshape(-1, 1) /np.sum(non_week_weight)
+linear_model = linear_model.fit(x,y1)
+pred_y1 = linear_model.predict(x)
+
+auc_pred16 = {}
+for k in range(3):
+    auc_pred16[k]=[]
+l=10
+for i in range(l):
+    print('\rIteration: ', str(i+1), ' / ', str(l), sep='', end='')
+    negative_class = lanl.resampling(A[56],size_multiplier = 1)
+    lin_x1,lin_y1=lanl.aip(A[56],X,Y,negative_class,y1)
+    auc_pred16[0].append(roc_auc_score(lin_y1,lin_x1))
+    lin_x2,lin_y2=lanl.aip(A[56],X,Y,negative_class,pred_y1)
+    auc_pred16[1].append(roc_auc_score(lin_y2,lin_x2))
+    lin_x3,lin_y3=lanl.aip(A[56],X,Y,negative_class,week_weight[1.2])
+    auc_pred16[2].append(roc_auc_score(lin_y3,lin_x3))    
+
+for j in range(3):
+    plt.plot(np.linspace(1,l,l),auc_pred16[j],'o-')
+plt.title('The AUC score of userdip data using linear weighted AIP')
+plt.legend(['geometric','linear','weekly'])
+plt.show()
+
+
+#plot of four 
+
+plt.plot(np.linspace(1,56,56),non_week_weight/np.sum(non_week_weight))
+plt.plot(np.linspace(1,56,56),pred_y1/np.sum(pred_y1))
+plt.plot(np.linspace(1,56,56),week_weight[1.2]/np.sum(week_weight[1.2]))
+plt.hlines(xmin=1,xmax=56,y=1/56)
+plt.legend(['geo~0.99','linear','weekly','unweighted'])
+plt.xlabel('t')
+plt.ylabel('AUC')
+plt.title('Plot of Scaled Weights')
+plt.show()
 
 #########
 # COSIE #
@@ -250,7 +383,6 @@ plt.xlabel('Times')
 plt.ylabel('AUC score')
 plt.title('The AUC score of userdip data using COSIE')
 plt.show()
-
 
 
 #repeating the resampling for size_multiplier = 0.1,0.2,0.5,1,2
@@ -441,6 +573,9 @@ plt.xlabel('Times')
 plt.ylabel('AUC score')
 plt.title('The AUC score of userdip data using AIP to compare resampling method')
 plt.show()
+
+
+
 
 
 
