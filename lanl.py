@@ -269,7 +269,8 @@ plt.show()
 #more weighting for previous Sunday if want to predict for Sunday
 non_week_weight = np.array([ 0.99 **(56-t) for t in range(56)])
 #multiple parameter for corresponding day
-week_idx = np.array([1,1.2,1.4,1.6,1.8,2.0])
+#week_idx = np.array([1.05,1.1,1,1.2,1.4,1.6])
+week_idx = np.array([1,1.01,1.02,1.03,1.04,1.05])
 week_weight_param = np.ones((len(week_idx),56))
 for i in range(56):
     if (i+1)%7==1:
@@ -280,8 +281,8 @@ for k in range(len(week_idx)):
     week_weight[week_idx[k]] = week_weight_param[k,:] * non_week_weight
 
 auc_pred15 = {}
-auc_pred15[0]=[] #store AUC of AIP 
-l=10
+#auc_pred15[0]=[] #store AUC of AIP 
+l=5
 for w in week_idx:
     auc_pred15[w]=[]
 for n in range(l):
@@ -289,19 +290,20 @@ for n in range(l):
     negative_class = lanl.resampling(A[56],size_multiplier = 1)
     #compute AUC for unweighted AIP
     x1,y1=lanl.aip(A[56],X,Y,negative_class)
-    auc_pred15[0].append(roc_auc_score(y1,x1))
+    #auc_pred15[0].append(roc_auc_score(y1,x1))
     #for weighted AIP
     for w in week_idx:
         x2,y2 = lanl.aip(A[56],X,Y,negative_class,week_weight[w])
         auc_pred15[w].append(roc_auc_score(y2,x2))
 
 #plot of AUC curves
-for j in range(len(week_idx )):
+for j in range(len(week_idx)):
     plt.plot(np.linspace(1,l,l),auc_pred15[week_idx[j]],'o-')
-plt.plot(np.linspace(1,l,l),auc_pred15[0],'o-')
+#plt.plot(np.linspace(1,l,l),auc_pred15[0],'o-')
     
 #plt.legend(['unweighted','weighted 0.99^(56-t)','weighted 0.98^(56-t)','weighted 0.97^(56-t)','weighted 0.96^(56-t)','weighted 0.95^(56-t)'])
-plt.legend(['1','1.2','1.4','1.6','1.8','2.0','unweighted'])
+#plt.legend(['1','1.05','1.1','1.2','1.4','1.6','unweighted'])
+plt.legend(['1','1.01','1.02','1.03','1.04','1.05'])
 plt.xlabel('Times')
 plt.ylabel('AUC score')
 plt.title('The AUC score of userdip data using weekly weighted AIP')
@@ -312,7 +314,7 @@ plt.show()
 for w in week_idx:
     plt.plot(np.linspace(1,56,56),week_weight[w]/np.sum(week_weight[w]))
 plt.hlines(xmin=1,xmax=56,y=1/56)
-plt.legend(['1','1.2','1.4','1.6','1.8','2.0','unweighted'])
+plt.legend(['1','1.05','1.1','1.2','1.4','1.6','unweighted'])
 plt.title('Plot of weekly weights')
 plt.show()
 
@@ -347,14 +349,13 @@ plt.show()
 
 
 #plot of four 
-
 plt.plot(np.linspace(1,56,56),non_week_weight/np.sum(non_week_weight))
 plt.plot(np.linspace(1,56,56),pred_y1/np.sum(pred_y1))
 plt.plot(np.linspace(1,56,56),week_weight[1.2]/np.sum(week_weight[1.2]))
 plt.hlines(xmin=1,xmax=56,y=1/56)
 plt.legend(['geo~0.99','linear','weekly','unweighted'])
 plt.xlabel('t')
-plt.ylabel('AUC')
+plt.ylabel('weights')
 plt.title('Plot of Scaled Weights')
 plt.show()
 
