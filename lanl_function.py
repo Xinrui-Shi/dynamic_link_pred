@@ -233,7 +233,7 @@ def aip(A,X,Y,negative_class,weight=None):
     if weight is None:
         weight = np.ones(t)/t
     else:
-        weight /= np.sum(weight)
+        weight = weight/np.sum(weight)
     
     for i in range(t):
         if i==0:
@@ -300,7 +300,146 @@ def cosie_average(A_pred,X,Y,R_average,negative_class):
     return x,y
 
 
+########
+# UASE #   
+########
+
+#sorted index of destination node
+def modify_counter(A,return_idx_list=False):
+    #A is a counter
+    A_keys = list(A.keys())
+    #unmodified destination node index in order
+    destination_node = sorted(np.unique([link[1] for link in A_keys]))
     
+    
+    #modfied counters
+    A_modified = Counter()
+    for link in A_keys:
+        A_modified[link[0],destination_node.index(link[1])]=1
+    
+    if return_idx_list:
+        return A_modified,destination_node
+    else:
+        return A_modified
+    
+
+def unfold_A(A,return_shape=False):
+    #find shape of all adjacency matrices
+    # construct unfolded A
+    A_shape = {}#dictionary
+    idx_list = list(A.keys())
+    for i in idx_list:
+        A_i = A[i]
+        A_shape[i] = A_i.shape
+        if i==idx_list[0]:
+            unfolded_A = A_i.toarray()
+        else:
+            unfolded_A = np.hstack((unfolded_A,A_i.toarray()))
+    if return_shape:
+        return coo_matrix(unfolded_A),A_shape
+    else:
+        return coo_matrix(unfolded_A)
+
+
+def uase(A,d):
+    #A is a dictionary contain k adjacency matrices
+    #d is dimension for truncated SVD
+    
+    #find shape of all adjacency matrices
+    # construct unfolded A
+    unfolded_A,A_shape = unfold_A(A,return_shape=True)
+    #truncated SVD on dimension d
+    U,eigval,V_transpose = svds(unfolded_A,k=d)
+    
+    #compute expectation
+    P = U @ np.diag(eigval)@ V_transpose
+    #compute expected of A_t
+    P_t = {}#dictionary
+    idx_list = list(A.keys())
+    n=0
+    for idx in idx_list:
+        n_i = A_shape[idx][1]
+        P_t[idx] = P[:,n:(n_i+n)]
+        n = n_i+n
+    return P_t
+
+
+
+def uase22222(A,d):
+    #A is a dictionary contain k adjacency matrices
+    #d is dimension for truncated SVD
+    
+    #find shape of all adjacency matrices
+    # construct unfolded A
+    unfolded_A,A_shape = unfold_A(A,return_shape=True)
+    #truncated SVD on dimension d
+    U,eigval,V_transpose = svds(unfolded_A,k=d)
+    
+    #common X
+    X = U @ np.diag(np.sqrt(abs(eigval)))
+    
+    #big Y
+    Y = V_transpose.T @ np.diag(np.sqrt(abs(eigval)))
+    #split Y
+    Y_t = {}#dictionary
+    #compute R_t
+    R_t = {}#dictionary
+    #compute expected of A_t
+    P_t = {}#dictionary
+    idx_list = list(A.keys())
+    n=0
+    for idx in idx_list:
+        n_i = A_shape[idx][1]
+        Y_t[idx] = Y[n:(n_i+n),:]
+        R_t[idx] = X.T @ A[idx] @ Y_t[idx]
+        P_t[idx] = X @ R_t[idx] @ Y_t[idx].T
+        n = n_i+n
+    return P_t
+        
+#construct bernoulli variable
+def z_it(A_counter,i):
+    #A_counter is a Counter
+    #i is destination node
+    A_keys = np.array(list(A_counter.keys()))
+    for link in A_keys:
+        if link[1]==i:
+            return 1
+    return 0
+        
+#UASE AIP score
+def uase_aip(A,dest_idx_order,P_t,k,i):
+    #A is disctionary contained counters (unmodified)
+    #dest_idx_order is the destination node index in order
+    #P_t is expectation
+    #k is source node
+    #i is destination node
+   
+    #compute z_it and pick corresponding probabilities
+    z_sum = 0
+    P_ki = np.array([])
+    idx_list = list(A.keys())#time index
+    for idx in idx_list:
+        z = z_it(A[idx],i)
+        z_sum += z
+        if z==1:
+            p_kit = P_t[idx][k,dest_idx_order[idx].index(i)]
+            P_ki = np.append(P_ki,p_kit)
+    
+    if z_sum==0:
+        return 0
+    else:
+        return np.average(P_ki)
+        
+
+        
+    
+    
+       
+    
+   
+    
+    
+
 
 
     

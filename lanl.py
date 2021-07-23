@@ -577,6 +577,39 @@ plt.show()
 
 
 
+#########
+# MRDPG #
+#########
+
+#construct adjacency matrix for time 1 to 90 days
+A = lanl.counter_A(data_userdip,multiple = True,direct=True)
+m,n = lanl.find_dimension(data_userdip) #find dimension of adjacency matrix
+#modified index of destination node
+A_modified = {}#dictionary
+modified_idx = {}
+for i in range(len(A)):
+    A_mod_counter,modified_idx_list = lanl.modify_counter(A[i],return_idx_list=True)
+    A_modified[i] = A_mod_counter
+    modified_idx[i] = modified_idx_list
+    
+A_mat = {}
+#same number of source node
+for i in range(len(A)):
+    A_mat[i] = lanl.counter2A(A_modified[i],m,n=None)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
