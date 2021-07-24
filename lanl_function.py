@@ -16,6 +16,7 @@ from scipy.sparse.linalg import svds
 
 
 
+
 #################################
 # Constructing Adjacency Matrix #
 #################################
@@ -341,31 +342,8 @@ def unfold_A(A,return_shape=False):
         return coo_matrix(unfolded_A)
 
 
+
 def uase(A,d):
-    #A is a dictionary contain k adjacency matrices
-    #d is dimension for truncated SVD
-    
-    #find shape of all adjacency matrices
-    # construct unfolded A
-    unfolded_A,A_shape = unfold_A(A,return_shape=True)
-    #truncated SVD on dimension d
-    U,eigval,V_transpose = svds(unfolded_A,k=d)
-    
-    #compute expectation
-    P = U @ np.diag(eigval)@ V_transpose
-    #compute expected of A_t
-    P_t = {}#dictionary
-    idx_list = list(A.keys())
-    n=0
-    for idx in idx_list:
-        n_i = A_shape[idx][1]
-        P_t[idx] = P[:,n:(n_i+n)]
-        n = n_i+n
-    return P_t
-
-
-
-def uase22222(A,d):
     #A is a dictionary contain k adjacency matrices
     #d is dimension for truncated SVD
     
@@ -431,10 +409,66 @@ def uase_aip(A,dest_idx_order,P_t,k,i):
         return np.average(P_ki)
         
 
+#########################################
+# Temporal logistic regression approach #   
+#########################################  
+def obtain_destination_node(A):
+    #A is disctionary contained Counters (unmodified)
+    #extract all the destination node
+    time_idx = list(A.keys())
+    destination_node = np.array([])
+    for t in time_idx:
+        A_t = A[t]
+        for link in A_t:
+            destination_node = np.append(destination_node,link[1])
+            
+    destination_node = np.sort(np.unique(destination_node))#delete repeated nodes
+    return destination_node
+    
+
+def design_matrix(A,destination_node,T,k):
+    #A is disctionary contained Counters (unmodified)
+    no_destination_node = len(destination_node)
+    
+    #construct of design matrix
+    desgin_M = np.ones((no_destination_node,k+1))
+    
+    for j in range(1,k+1):
+        for i in range(no_destination_node):
+            desgin_M[i,j] =  z_it(A[T-j],destination_node[i])
+    
+    return desgin_M
+
+def response_vector(A_T,destination_node):
+    #A is disctionary contained Counters (unmodified)
+    no_destination_node = len(destination_node)
+    #construct of response vector
+    response_v = np.array([])
+    for i in range(no_destination_node):
+        response_v = np.append(response_v,z_it(A_T,destination_node[i]))
+    return response_v
+  
+def logit_matrix(A,T,k):
+    #A is disctionary contained Counters (unmodified)
+    #T is latest time of observed adjacency matrix
+    #k is number of past times for regression    
+            
+    destination_node = obtain_destination_node(A)
+    
+    #construct of design matrix
+    desgin_M = design_matrix(A,destination_node,T,k)
+
+    #construct of response vector
+    response_v = response_vector(A[T],destination_node)
+    
+    return desgin_M,response_v
+
+
+
         
-    
-    
-       
+            
+            
+        
     
    
     

@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from scipy.sparse.linalg import svds
 from sklearn.metrics import roc_auc_score
 from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LogisticRegression
 #import functions from files
 import lanl_function as lanl
 import zhu
@@ -600,16 +601,40 @@ for i in range(len(A)):
 
 
 
+#extract for testing code
+
+A_counter = {}
+A_modified_sub = {}
+A_mat_sub={}
+modified_idx_sub = {}
+
+for i in range(3):
+    A_counter[i]=A[i]
+    A_modified_sub[i] = A_modified[i]
+    modified_idx_sub[i] =modified_idx[i]
+    A_mat_sub[i]=A_mat[i]
 
 
+#using UASE
+P_t = lanl.uase(A_mat_sub,20)
 
+for i in range(3):
+    print(np.max(P_t[i]))#maximum prob is extremely big
+    
+    
+#logistic
+destination_node=lanl.obtain_destination_node(A_counter)
+#M = lanl.design_matrix(A_counter,destination_node,2,2)
+#V = lanl.response_vector(A_counter[2],destination_node)
+M,V = lanl.logit_matrix(A_counter,2,2)
 
+logit_model =  LogisticRegression()
+logit_model.fit(M,V)
 
-
-
-
-
-
+#predict for T=3
+M2 = lanl.design_matrix(A_counter,destination_node,3,2)
+V2 = lanl.response_vector(A_counter[3],destination_node)
+V2_pred = logit_model.predict(M2)
 
 
 
