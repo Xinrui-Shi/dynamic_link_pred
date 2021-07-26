@@ -601,6 +601,37 @@ for i in range(len(A)):
 
 
 
+#find all sets of destination node
+V = lanl.destination_node(data_userdip)
+#construct Z_it's
+Z = lanl.construct_Z(V)
+
+
+
+
+#Bernoulli_beta model
+
+#plot of probability density
+p = np.sum(Z,axis=1)/90
+import seaborn #seaborn is only used to plot this density function
+seaborn.kdeplot(p,shade=True)
+
+from scipy.stats import beta
+a, b, loc1, scale1 = beta.fit(p)
+x = np.linspace(beta.ppf(0.01, a, b),beta.ppf(0.99, a, b), 100)
+seaborn.kdeplot(beta.pdf(x, a, b),shade=True)
+
+
+
+
+
+seaborn.kdeplot(beta.pdf(x, a, b),shade=False)
+seaborn.kdeplot(p,shade=True)
+
+
+
+
+
 #extract for testing code
 
 A_counter = {}
@@ -615,17 +646,15 @@ for i in range(3):
     A_mat_sub[i]=A_mat[i]
 
 
+
 #using UASE
 P_t = lanl.uase(A_mat_sub,20)
-
 for i in range(3):
     print(np.max(P_t[i]))#maximum prob is extremely big
     
     
 #logistic
 destination_node=lanl.obtain_destination_node(A_counter)
-#M = lanl.design_matrix(A_counter,destination_node,2,2)
-#V = lanl.response_vector(A_counter[2],destination_node)
 M,V = lanl.logit_matrix(A_counter,2,2)
 
 logit_model =  LogisticRegression()

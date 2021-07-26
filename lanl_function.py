@@ -39,7 +39,7 @@ def counter_A(data,multiple = None,direct=True):
 
     #mutiple adjacency matrix
     A_t ={}
-    time_series = np. unique(edge_array[:,2])
+    time_series = np.unique(edge_array[:,2])
     
     for t in time_series:
         A_t[t-np.min(time_series)] = Counter()
@@ -341,8 +341,6 @@ def unfold_A(A,return_shape=False):
     else:
         return coo_matrix(unfolded_A)
 
-
-
 def uase(A,d):
     #A is a dictionary contain k adjacency matrices
     #d is dimension for truncated SVD
@@ -373,8 +371,62 @@ def uase(A,d):
         P_t[idx] = X @ R_t[idx] @ Y_t[idx].T
         n = n_i+n
     return P_t
+
+
+#split snapshot for edge_array
+def destination_node(data):
+    edge_array = np.array(data)
+    t_array = edge_array[:,2]
+    split_idx = []
+    time_idx = np.unique(t_array)
+    j=0
+    for i in range(len(t_array)-1):
+        if len(split_idx)==len(time_idx)-1:
+            break
+        if t_array[i]==time_idx[j]:
+            if t_array[i+1]==time_idx[j+1]:
+                j+=1
+                split_idx.append(i+1)
+            
+    edge_list = {}#dictionary
+    t1 = time_idx[0] #first time t
+    t2 = time_idx[len(time_idx)-1]#last time t
+    
+    edge_list[0] = edge_array[:split_idx[0]]
+    edge_list[t2-t1] = edge_array[split_idx[t2-2]:]
+    for k in range(1,t2-1):
+        edge_list[k] = edge_array[split_idx[k-1]:split_idx[k]]
         
-#construct bernoulli variable
+    #set of destination node
+    V = {}
+    for t in range(t2):
+        V[t] = set(edge_list[t][:,1])
+    return V
+
+#construct V_til
+def V_tilda(V):
+    #combine all sets as V_til
+    V_til = set([])
+    time_idx = list(V.keys())
+    for t in time_idx:
+        V_til = V_til.union(V[t])
+    return V_til
+
+    
+#construct Z_it's
+def construct_Z(V,V_til=None):
+    #V is dictionary contains sets of destination node
+    if V_til is None:
+        V_til = V_tilda(V)
+    time_idx = list(V.keys())
+    n_dest = np.max(np.array(list(V_til)))+1
+    Z = np.zeros((n_dest,len(time_idx)))
+    for j in list(V_til):
+        for i in range(len(time_idx)):
+            Z[j,i] += int(j in V[time_idx[i]])
+    return Z
+
+
 def z_it(A_counter,i):
     #A_counter is a Counter
     #i is destination node
@@ -385,83 +437,76 @@ def z_it(A_counter,i):
     return 0
         
 #UASE AIP score
-def uase_aip(A,dest_idx_order,P_t,k,i):
+def uase_aip(A,Z,dest_idx_order,P_t,k,i):
     #A is disctionary contained counters (unmodified)
+    #Z is contain all z_it
     #dest_idx_order is the destination node index in order
     #P_t is expectation
     #k is source node
     #i is destination node
-   
+    if np.sum(Z[i,:])==0:
+        return 0
     #compute z_it and pick corresponding probabilities
-    z_sum = 0
     P_ki = np.array([])
     idx_list = list(A.keys())#time index
     for idx in idx_list:
-        z = z_it(A[idx],i)
-        z_sum += z
+        z = Z[i,idx]
         if z==1:
             p_kit = P_t[idx][k,dest_idx_order[idx].index(i)]
             P_ki = np.append(P_ki,p_kit)
-    
-    if z_sum==0:
-        return 0
-    else:
-        return np.average(P_ki)
-        
+    return np.average(P_ki)
+   
+########################
+# Beta-bernoulli Model #
+########################
+
+
+
+
+
+
+
+
+
+
+
+
+
+     
 
 #########################################
 # Temporal logistic regression approach #   
 #########################################  
-def obtain_destination_node(A):
-    #A is disctionary contained Counters (unmodified)
-    #extract all the destination node
-    time_idx = list(A.keys())
-    destination_node = np.array([])
-    for t in time_idx:
-        A_t = A[t]
-        for link in A_t:
-            destination_node = np.append(destination_node,link[1])
-            
-    destination_node = np.sort(np.unique(destination_node))#delete repeated nodes
-    return destination_node
-    
 
-def design_matrix(A,destination_node,T,k):
-    #A is disctionary contained Counters (unmodified)
-    no_destination_node = len(destination_node)
-    
+def design_matrix(Z,T,k):
+    #Z is contain all z_it
+    #T>=0 is time index
+    m = Z.shape[0] # m is number of dstination nodes
+
     #construct of design matrix
-    desgin_M = np.ones((no_destination_node,k+1))
-    
-    for j in range(1,k+1):
-        for i in range(no_destination_node):
-            desgin_M[i,j] =  z_it(A[T-j],destination_node[i])
-    
-    return desgin_M
+    design_M = np.ones((m,k+1))
+    design_M[:,1:] = Z[:,T-k:T]
+  
+    return design_M
 
-def response_vector(A_T,destination_node):
-    #A is disctionary contained Counters (unmodified)
-    no_destination_node = len(destination_node)
+
+def response_vector(Z,T):
     #construct of response vector
-    response_v = np.array([])
-    for i in range(no_destination_node):
-        response_v = np.append(response_v,z_it(A_T,destination_node[i]))
+    response_v = Z[:,T]
     return response_v
   
-def logit_matrix(A,T,k):
-    #A is disctionary contained Counters (unmodified)
+def logit_matrix(Z,T,k):
+    #Z is contain all z_it
     #T is latest time of observed adjacency matrix
     #k is number of past times for regression    
             
-    destination_node = obtain_destination_node(A)
-    
     #construct of design matrix
-    desgin_M = design_matrix(A,destination_node,T,k)
+    design_M = design_matrix(Z,T,k)
 
     #construct of response vector
-    response_v = response_vector(A[T],destination_node)
+    response_v = response_vector(Z,T)
     
-    return desgin_M,response_v
+    return design_M,response_v
 
 
 
