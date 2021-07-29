@@ -359,7 +359,7 @@ def uase(A,d):
     #split Y
     Y_t = {}#dictionary
     #compute R_t
-    R_t = {}#dictionary
+   # R_t = {}#dictionary
     #compute expected of A_t
     P_t = {}#dictionary
     idx_list = list(A.keys())
@@ -367,8 +367,9 @@ def uase(A,d):
     for idx in idx_list:
         n_i = A_shape[idx][1]
         Y_t[idx] = Y[n:(n_i+n),:]
-        R_t[idx] = X.T @ A[idx] @ Y_t[idx]
-        P_t[idx] = X @ R_t[idx] @ Y_t[idx].T
+       # R_t[idx] = X.T @ A[idx] @ Y_t[idx] 
+        #P_t[idx] = X @ R_t[idx] @ Y_t[idx].T
+        P_t[idx] = X  @ Y_t[idx].T
         n = n_i+n
     return P_t
 
@@ -459,8 +460,20 @@ def uase_aip(A,Z,dest_idx_order,P_t,k,i):
 ########################
 # Beta-bernoulli Model #
 ########################
-
-
+def Beta_bernoulli(Z,i,T,alpha=1,beta=1):
+    #Z is contain all z_it
+    #i is destination node
+    #T is time for prediction
+    Z_i = Z[i,:]
+    theta_i = np.array([])
+    for t in range(T):
+        if t!=0:
+            alpha += Z_i[t+1]
+            beta += 1- Z_i[t+1]
+            
+        theta_i = np.append(theta_i ,alpha/(alpha+beta))
+    return theta_i
+    
 
 
 
@@ -494,8 +507,9 @@ def response_vector(Z,T):
     #construct of response vector
     response_v = Z[:,T]
     return response_v
-  
-def logit_matrix(Z,T,k):
+
+
+def logit_regression(Z,T,k):
     #Z is contain all z_it
     #T is latest time of observed adjacency matrix
     #k is number of past times for regression    

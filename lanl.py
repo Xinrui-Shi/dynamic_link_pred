@@ -603,47 +603,88 @@ for i in range(len(A)):
 
 #find all sets of destination node
 V = lanl.destination_node(data_userdip)
-#construct Z_it's
-Z = lanl.construct_Z(V)
 
 
 
 
 #Bernoulli_beta model
 
-#plot of probability density
-p = np.sum(Z,axis=1)/90
-import seaborn #seaborn is only used to plot this density function
-seaborn.kdeplot(p,shade=True)
+#construct Z_it's
+Z = lanl.construct_Z(V)
 
-from scipy.stats import beta
-a, b, loc1, scale1 = beta.fit(p)
-x = np.linspace(beta.ppf(0.01, a, b),beta.ppf(0.99, a, b), 100)
-seaborn.kdeplot(beta.pdf(x, a, b),shade=True)
+#compute theta
+theta = {}
+T=56
+l = 100
+import random
+random_selected_node = random.sample(range(0, Z.shape[0]), l)
+for i in range(l):
+    print('\rIteration: ', str(i+1), ' / ', str(l), sep='', end='')
+    theta[i]=lanl.Beta_bernoulli(Z,random_selected_node[i],T,alpha=1,beta=1)
 
+for i in range(l):
+    plt.plot(np.linspace(1,T,T),theta[i])
+plt.ylabel('estimate of theta_i')
+plt.xlabel('t')
+plt.title('Estimate of theta for destination nodes')
+plt.show()
 
+#explore different initial params (alpha,beta)
+beta_list = []
+for i in range(1,3):
+    for j in range(1,3):
+        beta_list.append((i,j))
+beta_list.append((1,10))
+beta_list.append((10,1))
+beta_list.append((2,5))
+beta_list.append((5,2))
 
+i=0
+theta_i = {}
+for l in range(len(beta_list)):
+    alpha0,beta0 = beta_list[l]
+    theta_i[l]=lanl.Beta_bernoulli(Z,i,T,alpha0,beta0)
+    plt.plot(np.linspace(1,T,T),theta_i[l])
+plt.legend(beta_list)
+plt.ylabel('estimate of theta_i')
+plt.xlabel('t')
+plt.title('Estimate of theta for destination node i=0')
+plt.show()
+    
+    
 
+#different alpha
+beta0 =1
+beta_list2 = []
+    
+i=3
+theta_i = {}
+for alpha0 in range(1,10):
+    beta_list2.append((alpha0,beta0))
+    theta_i[alpha0]=lanl.Beta_bernoulli(Z,i,T,alpha0,beta0)
+    plt.plot(np.linspace(1,T,T),theta_i[alpha0])
+plt.legend(beta_list2)
+plt.ylabel('estimate of theta_i')
+plt.xlabel('t')
+plt.title('Estimate of theta for destination node i=0')
+plt.show()
 
-seaborn.kdeplot(beta.pdf(x, a, b),shade=False)
-seaborn.kdeplot(p,shade=True)
+#different beta
+alpha0 =1
+beta_list3 = []
+    
+i=4
+theta_i = {}
+for beta0 in range(1,10):
+    beta_list3.append((alpha0,beta0))
+    theta_i[beta0]=lanl.Beta_bernoulli(Z,i,T,alpha0,beta0)
+    plt.plot(np.linspace(1,T,T),theta_i[beta0])
+plt.legend(beta_list3)
+plt.ylabel('estimate of theta_i')
+plt.xlabel('t')
+plt.title('Estimate of theta for destination node i=0')
+plt.show()
 
-
-
-
-
-#extract for testing code
-
-A_counter = {}
-A_modified_sub = {}
-A_mat_sub={}
-modified_idx_sub = {}
-
-for i in range(3):
-    A_counter[i]=A[i]
-    A_modified_sub[i] = A_modified[i]
-    modified_idx_sub[i] =modified_idx[i]
-    A_mat_sub[i]=A_mat[i]
 
 
 
@@ -651,19 +692,67 @@ for i in range(3):
 P_t = lanl.uase(A_mat_sub,20)
 for i in range(3):
     print(np.max(P_t[i]))#maximum prob is extremely big
-    
-    
+ 
+for i in range(3):
+    p = np.sort(P_t[i].reshape(P_t[i].size,))[::-1]
+    plt.scatter(np.linspace(1,len(p),len(p)),p,s=1)
+plt.hlines(y=0,xmin=1,xmax=len(p),colors='r')
+plt.ylabel('entry of P_t')
+plt.show()
+
 #logistic
-destination_node=lanl.obtain_destination_node(A_counter)
-M,V = lanl.logit_matrix(A_counter,2,2)
 
-logit_model =  LogisticRegression()
-logit_model.fit(M,V)
+#different k
+theta2 = np.zeros((Z.shape[0],88))
+for k in range(1,89):
+    print('\rIteration: ', str(k), ' / ', str(88), sep='', end='')
+    M1,V1 = lanl.logit_matrix(Z,89,k)
+    logit_model =  LogisticRegression()
+    logit_model.fit(M1,V1)
+    beta1 = logit_model.coef_
+    pred_V =  np.dot(M1,beta1.T)
+    exp_z = np.exp(pred_V)
+    theta_hat = exp_z /(1+exp_z)
+    theta2[:,k-1] = theta_hat.reshape(len(theta_hat),)
+    
+for i in range(10):
+    plt.plot(np.linspace(1,88,88),theta2[random_selected_node[i]])
+plt.ylabel('estimate of theta_i')
+plt.xlabel('k')
+plt.title('Estimate of theta for destination nodes')
+plt.show()
 
-#predict for T=3
-M2 = lanl.design_matrix(A_counter,destination_node,3,2)
-V2 = lanl.response_vector(A_counter[3],destination_node)
-V2_pred = logit_model.predict(M2)
+#for given k, compute theta_i along time
+k=56
+theta3 = np.zeros((Z.shape[0],90-k))
+for t in range(k,90):
+    print('\rIteration: ', str(t), ' / ', str(89), sep='', end='')
+    M1,V1 = lanl.logit_matrix(Z,t,k)
+    logit_model =  LogisticRegression()
+    logit_model.fit(M1,V1)
+    beta1 = logit_model.coef_
+    pred_V =  np.dot(M1,beta1.T)
+    exp_z = np.exp(pred_V)
+    theta_hat = exp_z /(1+exp_z)
+    theta3[:,t-k] = theta_hat.reshape(len(theta_hat),) 
+
+    
+for i in range(10):
+    plt.plot(np.linspace(k,90,90-k),theta3[random_selected_node[i],:],'-o')
+plt.ylabel('estimate of theta_i')
+plt.xlabel('t')
+plt.title('Estimate of theta for destination nodes')
+plt.show()   
+
+
+
+
+
+
+
+
+
+
 
 
 
