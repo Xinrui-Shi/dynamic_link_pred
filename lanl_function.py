@@ -509,7 +509,7 @@ def response_vector(Z,T):
     return response_v
 
 
-def logit_regression(Z,T,k):
+def logit_matrix(Z,T,k):
     #Z is contain all z_it
     #T is latest time of observed adjacency matrix
     #k is number of past times for regression    

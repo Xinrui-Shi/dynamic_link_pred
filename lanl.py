@@ -630,34 +630,12 @@ plt.title('Estimate of theta for destination nodes')
 plt.show()
 
 #explore different initial params (alpha,beta)
-beta_list = []
-for i in range(1,3):
-    for j in range(1,3):
-        beta_list.append((i,j))
-beta_list.append((1,10))
-beta_list.append((10,1))
-beta_list.append((2,5))
-beta_list.append((5,2))
-
-i=0
-theta_i = {}
-for l in range(len(beta_list)):
-    alpha0,beta0 = beta_list[l]
-    theta_i[l]=lanl.Beta_bernoulli(Z,i,T,alpha0,beta0)
-    plt.plot(np.linspace(1,T,T),theta_i[l])
-plt.legend(beta_list)
-plt.ylabel('estimate of theta_i')
-plt.xlabel('t')
-plt.title('Estimate of theta for destination node i=0')
-plt.show()
     
-    
-
 #different alpha
 beta0 =1
 beta_list2 = []
     
-i=3
+i=0
 theta_i = {}
 for alpha0 in range(1,10):
     beta_list2.append((alpha0,beta0))
@@ -673,7 +651,7 @@ plt.show()
 alpha0 =1
 beta_list3 = []
     
-i=4
+i=0
 theta_i = {}
 for beta0 in range(1,10):
     beta_list3.append((alpha0,beta0))
@@ -688,17 +666,7 @@ plt.show()
 
 
 
-#using UASE
-P_t = lanl.uase(A_mat_sub,20)
-for i in range(3):
-    print(np.max(P_t[i]))#maximum prob is extremely big
- 
-for i in range(3):
-    p = np.sort(P_t[i].reshape(P_t[i].size,))[::-1]
-    plt.scatter(np.linspace(1,len(p),len(p)),p,s=1)
-plt.hlines(y=0,xmin=1,xmax=len(p),colors='r')
-plt.ylabel('entry of P_t')
-plt.show()
+
 
 #logistic
 
