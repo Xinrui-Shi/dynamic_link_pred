@@ -599,13 +599,12 @@ for i in range(len(A)):
     A_mat[i] = lanl.counter2A(A_modified[i],m,n=None)
 
 
-
+#########################
+#Estimation of theta_it #
+#########################
 
 #find all sets of destination node
 V = lanl.destination_node(data_userdip)
-
-
-
 
 #Bernoulli_beta model
 
@@ -662,10 +661,6 @@ plt.ylabel('estimate of theta_i')
 plt.xlabel('t')
 plt.title('Estimate of theta for destination node i=0')
 plt.show()
-
-
-
-
 
 
 #logistic

@@ -473,18 +473,6 @@ def Beta_bernoulli(Z,i,T,alpha=1,beta=1):
             
         theta_i = np.append(theta_i ,alpha/(alpha+beta))
     return theta_i
-    
-
-
-
-
-
-
-
-
-
-
-
      
 
 #########################################
