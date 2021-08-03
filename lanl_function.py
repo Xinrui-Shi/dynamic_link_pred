@@ -552,7 +552,87 @@ def logit_matrix(Z,T,k,return_beta = False):
 
         
             
-            
+##########################
+# Only Never Linked Pair #
+##########################
+def resampling2222(A,size_multiplier = 2):
+    ## Sample of the negative class
+    A_keys = np.array(list(A.keys()))
+    m = np.max(A_keys[:,0])+1
+    n = np.max(A_keys[:,1])+1
+    n_edges = len(A)
+    negative_class = np.zeros((int(size_multiplier * n_edges),2))
+    negative_class[:,0] = np.random.choice(m, size=negative_class.shape[0])
+    negative_class[:,1] = np.random.choice(n, size=negative_class.shape[0])
+    ## delete repeated pairs
+    negative_class = np.unique(negative_class,axis=0)
+    ## convert into counter
+    negative_class_counter = Counter()
+    for pair in list(negative_class):
+        negative_class_counter[pair[0],pair[1]] = 0
+    ## Check that the sampled elements effectively correspond to the negative class
+    negative_class_indices = np.array([pair not in A for pair in negative_class_counter])
+    negative_class = negative_class[negative_class_indices]
+    return negative_class
+
+
+#resamling in the subset containing never observed pairs
+def resampling2(A_observed,A_pred,size_multiplier = 2):
+    #A_observed is dictionary of observed linked pairs saved in counters
+    #A_pred is the link which we want to predict for
+    
+    time_idx = list(A_observed.keys())
+    
+    #all positive class
+    positive_class = np.array([])
+    A_keys = np.array(list(A_pred.keys()))
+    
+    observed_links = Counter()
+    for t in time_idx:
+        observed_links += A_observed[t]
+        
+    positive_indices = np.array([pair not in observed_links for pair in A_pred])
+    positive_class = A_keys[positive_indices]
+    
+    #random negative class
+    m = np.max(A_keys[:,0])+1
+    n = np.max(A_keys[:,1])+1
+    n_edges = len(A_pred)
+    negative_class = np.zeros((int(size_multiplier * n_edges),2))
+    negative_class[:,0] = np.random.choice(m, size=negative_class.shape[0])
+    negative_class[:,1] = np.random.choice(n, size=negative_class.shape[0])
+    negative_class = np.unique(negative_class,axis=0)# delete repeated pairs
+    
+    #select 0 in A_pred
+    negative_class_counter = Counter()
+    for pair in list(negative_class):
+        negative_class_counter[pair[0],pair[1]] = 0
+    negative_class_indices = np.array([pair not in A_pred for pair in negative_class_counter])
+    negative_class = negative_class[negative_class_indices]
+   
+    #select never observed
+    negative_class_counter2 = Counter()
+    for pair in list(negative_class):
+        negative_class_counter2[pair[0],pair[1]] = 0
+    negative_class_indices2 = np.array([pair not in observed_links for pair in negative_class_counter2])
+    negative_class = negative_class[negative_class_indices2]
+    
+    #construct x and y
+    x = np.vstack((positive_class,negative_class))
+    y = np.concatenate((np.ones(len(positive_class)),np.ones(len(negative_class))))
+    
+    return x,y
+    
+    
+
+    
+    
+    
+        
+    
+    
+    
+          
         
     
    
