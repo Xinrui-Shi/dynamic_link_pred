@@ -606,6 +606,9 @@ for i in range(len(A)):
 #find all sets of destination node
 V = lanl.destination_node(data_userdip)
 
+#find all sets of source node
+V_source = lanl.destination_node(data_userdip,return_dest=False)
+
 #Bernoulli_beta model
 
 #construct Z_it's
@@ -622,7 +625,7 @@ for i in range(l):
     theta[i]=lanl.Beta_bernoulli(Z,random_selected_node[i],T,alpha=1,beta=1)
 
 for i in range(l):
-    plt.plot(np.linspace(1,T,T),theta[i])
+    plt.plot(np.linspace(0,T,T+1),theta[i])
 plt.ylabel('estimate of theta_i')
 plt.xlabel('t')
 plt.title('Estimate of theta for destination nodes')
@@ -666,11 +669,13 @@ plt.show()
 #logistic
 
 #different k
-theta2 = np.zeros((Z.shape[0],88))
-for k in range(1,89):
+
+k=88
+theta2 = np.zeros((Z.shape[0],k))
+for k in range(1,k+1):
     print('\rIteration: ', str(k), ' / ', str(88), sep='', end='')
     M1,V1 = lanl.logit_matrix(Z,89,k)
-    logit_model =  LogisticRegression()
+    logit_model =  LogisticRegression(max_iter=5000)
     logit_model.fit(M1,V1)
     beta1 = logit_model.coef_
     pred_V =  np.dot(M1,beta1.T)
@@ -679,19 +684,19 @@ for k in range(1,89):
     theta2[:,k-1] = theta_hat.reshape(len(theta_hat),)
     
 for i in range(10):
-    plt.plot(np.linspace(1,88,88),theta2[random_selected_node[i]])
+    plt.plot(np.linspace(1,88,88),theta2[i])
 plt.ylabel('estimate of theta_i')
 plt.xlabel('k')
 plt.title('Estimate of theta for destination nodes')
 plt.show()
 
 #for given k, compute theta_i along time
-k=56
+k=7
 theta3 = np.zeros((Z.shape[0],90-k))
 for t in range(k,90):
     print('\rIteration: ', str(t), ' / ', str(89), sep='', end='')
     M1,V1 = lanl.logit_matrix(Z,t,k)
-    logit_model =  LogisticRegression()
+    logit_model =  LogisticRegression(max_iter=5000)
     logit_model.fit(M1,V1)
     beta1 = logit_model.coef_
     pred_V =  np.dot(M1,beta1.T)
@@ -701,11 +706,81 @@ for t in range(k,90):
 
     
 for i in range(10):
-    plt.plot(np.linspace(k,90,90-k),theta3[random_selected_node[i],:],'-o')
+    plt.plot(np.linspace(k,90,90-k),theta3[i,:],'-o')
 plt.ylabel('estimate of theta_i')
 plt.xlabel('t')
 plt.title('Estimate of theta for destination nodes')
 plt.show()   
+
+
+
+
+
+#test for sveral A_ts as observed pairs
+#A1,...A7:T=7
+train_data = data_userdip.iloc[:1299164,:]
+
+#construct adjacency matrix for time 1 to 56  days
+A_train = lanl.counter_A(train_data,multiple = True,direct=True)
+m,n = lanl.find_dimension(train_data) #find dimension of adjacency matrix
+#modified index of destination node
+A_modified_train = {}#dictionary
+modified_idx_train = {}
+for i in range(len(A_train)):
+    A_mod_counter,modified_idx_list = lanl.modify_counter(A_train[i],return_idx_list=True)
+    A_modified_train[i] = A_mod_counter
+    modified_idx_train[i] = modified_idx_list
+    
+A_mat_train = {}
+#same number of source node
+for i in range(len(A_train)):
+    A_mat_train[i] = lanl.counter2A(A_modified_train[i],m,n=None)
+
+#find all sets of destination node
+V_train = lanl.destination_node(train_data)
+#construct Z_it's
+Z_train = lanl.construct_Z(V_train)
+
+#count for all observed source node
+source_node_count = lanl.count_node_number(train_data.iloc[:,0])
+
+#compute P_t
+P_t =  lanl.uase(A_mat_train,20)#d=20 for truncated svd
+
+#compute theta_i
+T=56
+Theta = lanl.Beta_bernoulli(Z_train,T,alpha0=1,beta0=1)
+theta = Theta[:,Theta.shape[1]-1]
+
+positive_class = np.zeros((len(A[56]),2))
+i=0
+for pair in A[56]:
+    positive_class[i,:] = pair
+    i+=1
+
+auc_pred14 = []
+ll = 10
+for l in range(ll):
+    print('\rIteration: ', str(l+1), ' / ', str(ll), sep='', end='')
+    negative_class = lanl.resampling(A[56],size_multiplier = 1)
+    observed_link= np.vstack((positive_class,negative_class))
+    observed_v = np.concatenate((np.ones(len(positive_class)),np.zeros(len(negative_class))))
+    beta_hat = lanl.logit_matrix(Z_train,T-1,55,return_beta = True)
+    M = lanl.design_matrix(Z_train,56,55)
+    theta_i = np.dot(M,beta_hat.T)
+    prob = np.array([])
+    for p in range(len(observed_link)):
+        k = int(observed_link[p,0])
+        i = int(observed_link[p,1])
+        phi_ik = lanl.uase_aip(A_modified_train,Z_train,modified_idx_train,source_node_count,P_t,k,i,m)
+        prob = np.append(prob,theta_i[i]*phi_ik)
+    auc_pred14.append(roc_auc_score(observed_v,prob))
+    
+        
+
+
+
+
 
 
 

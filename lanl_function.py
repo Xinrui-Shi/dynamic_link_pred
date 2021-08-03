@@ -375,7 +375,7 @@ def uase(A,d):
 
 
 #split snapshot for edge_array
-def destination_node(data):
+def destination_node(data,return_dest=True):
     edge_array = np.array(data)
     t_array = edge_array[:,2]
     split_idx = []
@@ -398,10 +398,14 @@ def destination_node(data):
     for k in range(1,t2-1):
         edge_list[k] = edge_array[split_idx[k-1]:split_idx[k]]
         
-    #set of destination node
+    #set of destination/source node
     V = {}
+    if return_dest:
+        choice_col = 1 #destination
+    else: 
+        choice_col = 0#source
     for t in range(t2):
-        V[t] = set(edge_list[t][:,1])
+        V[t] = set(edge_list[t][:,choice_col])
     return V
 
 #construct V_til
@@ -427,26 +431,40 @@ def construct_Z(V,V_til=None):
             Z[j,i] += int(j in V[time_idx[i]])
     return Z
 
-
-def z_it(A_counter,i):
-    #A_counter is a Counter
-    #i is destination node
-    A_keys = np.array(list(A_counter.keys()))
-    for link in A_keys:
-        if link[1]==i:
-            return 1
-    return 0
+def count_node_number(observed_node):
+    #observed_node is a array of all the repeatable observed node
+    count = Counter()
+    for node in observed_node:
+        count[node]+=1
+    #denote total count
+    count[-1] = len(observed_node)
+    
+    return count
         
+    
+    
+
 #UASE AIP score
-def uase_aip(A,Z,dest_idx_order,P_t,k,i):
+def uase_aip(A,Z,dest_idx_order,V_source_count,P_t,k,i,m,simple_est=False):
     #A is disctionary contained counters (unmodified)
     #Z is contain all z_it
     #dest_idx_order is the destination node index in order
+    #simple_est 
     #P_t is expectation
     #k is source node
     #i is destination node
+    #n is total number of source node
+    
+    #never observed
     if np.sum(Z[i,:])==0:
-        return 0
+        if simple_est:
+            return 1/m
+        else:
+            return V_source_count[k]/V_source_count[-1] #-1 corrsponds to the total counts
+            
+    
+    #used to be observed
+    
     #compute z_it and pick corresponding probabilities
     P_ki = np.array([])
     idx_list = list(A.keys())#time index
@@ -460,20 +478,31 @@ def uase_aip(A,Z,dest_idx_order,P_t,k,i):
 ########################
 # Beta-bernoulli Model #
 ########################
-def Beta_bernoulli(Z,i,T,alpha=1,beta=1):
+def Beta_bernoulli2(Z,i,T,alpha=1,beta=1):
     #Z is contain all z_it
     #i is destination node
     #T is time for prediction
     Z_i = Z[i,:]
     theta_i = np.array([])
     for t in range(T):
-        if t!=0:
-            alpha += Z_i[t+1]
-            beta += 1- Z_i[t+1]
+        if t==0:
+            theta_i = np.append(theta_i ,alpha/(alpha+beta))
+        #update alpha,beta
+        alpha += Z_i[t]
+        beta += 1- Z_i[t]
             
         theta_i = np.append(theta_i ,alpha/(alpha+beta))
     return theta_i
-     
+    
+def Beta_bernoulli(Z,T,alpha0=1,beta0=1):
+    Z = np.hstack((np.zeros((Z.shape[0],1), dtype=int),Z))
+    U = Z.cumsum(axis=1)
+    alpha = alpha0 + U
+    beta = beta0 + np.arange(T+1) - U
+    theta = np.divide(alpha, alpha + beta)
+    return theta
+
+
 
 #########################################
 # Temporal logistic regression approach #   
@@ -490,25 +519,34 @@ def design_matrix(Z,T,k):
   
     return design_M
 
-
 def response_vector(Z,T):
     #construct of response vector
     response_v = Z[:,T]
     return response_v
 
 
-def logit_matrix(Z,T,k):
+def logit_matrix(Z,T,k,return_beta = False):
     #Z is contain all z_it
     #T is latest time of observed adjacency matrix
     #k is number of past times for regression    
             
     #construct of design matrix
-    design_M = design_matrix(Z,T,k)
+    M = design_matrix(Z,T,k)
 
     #construct of response vector
-    response_v = response_vector(Z,T)
+    V = response_vector(Z,T)
     
-    return design_M,response_v
+    logit_model =  LogisticRegression(max_iter=5000)
+    logit_model.fit(M,V)
+    beta = logit_model.coef_
+    if return_beta:
+        return beta
+    
+    pred_V =  np.dot(M,beta.T)
+    exp_z = np.exp(pred_V)
+    theta_hat = exp_z /(1+exp_z)
+    
+    return theta_hat
 
 
 
