@@ -293,8 +293,6 @@ plt.show()
 
 
 
-
-
 #compare of three    
 
 auc_pred15 = {}
@@ -323,3 +321,29 @@ plt.xlabel('Iterations')
 plt.ylabel('AUC Scores')
 plt.title('AUC Scores for three methods in prdiction of never observed links')
 plt.show()
+
+
+
+########################################################
+# Compare expectations of probability by AIP and COSIE #
+########################################################
+auc_compare={}
+auc_compare[0]=[]
+auc_compare[1]=[]
+for t in range(55):
+    print('\rIteration: ', str(t+1), ' / ', str(55), sep='', end='')
+    negative_class = lanl.resampling(A[t],size_multiplier = 2)
+    x1,y1 = lanl.aip(A[t],X,Y,negative_class)
+    x_cosie,y_cosie = lanl.cosie_average(A[t],hat_X,hat_Y,R[t],negative_class)
+    auc_compare[0].append(roc_auc_score(y1,x1))
+    auc_compare[1].append(roc_auc_score(y_cosie,x_cosie))
+
+
+plt.figure(figsize=(8,4))
+plt.plot(np.linspace(1,55,55),auc_compare[0],':o')
+plt.plot(np.linspace(1,55,55),auc_compare[1],':o')
+plt.legend(['AIP','COSIE'])
+plt.xlabel('days')
+plt.ylabel('AUC score')
+plt.show()
+
