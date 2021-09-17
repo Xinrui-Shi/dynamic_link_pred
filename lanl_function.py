@@ -13,6 +13,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_curve, auc
 from scipy.sparse.linalg import svds
+from functools import reduce
 
 
 
@@ -22,7 +23,7 @@ from scipy.sparse.linalg import svds
 #################################
 
 #given threshold, construct a sequence adjacency matrices
-def counter_A(data,multiple = None,direct=True):
+def counter_A(data,multiple = None,direct=True,min_source=0,min_des=0):
     #convert edge information into list
     edge_array= np.array(data)
 
@@ -31,10 +32,10 @@ def counter_A(data,multiple = None,direct=True):
         A = Counter()
         for link in edge_array:
             if direct:
-                A[link[0],link[1]] = 1
+                A[link[0]-min_source,link[1]-min_des] = 1
             else:
-                A[link[0],link[1]] = 1
-                A[link[1],link[0]] = 1
+                A[link[0]-min_source,link[1]-min_des] = 1
+                A[link[1]-min_des,link[0]-min_source] = 1
         return A
 
     #mutiple adjacency matrix
@@ -46,10 +47,10 @@ def counter_A(data,multiple = None,direct=True):
         
     for link in edge_array:
         if direct:
-            A_t[link[2]-np.min(time_series)][link[0],link[1]] = 1
+            A_t[link[2]-np.min(time_series)][link[0]-min_source,link[1]-min_des] = 1
         else:
-            A_t[link[2]-np.min(time_series)][link[0],link[1]] = 1
-            A_t[link[2]-np.min(time_series)][link[1],link[0]] = 1
+            A_t[link[2]-np.min(time_series)][link[0]-min_source,link[1]-min_des] = 1
+            A_t[link[2]-np.min(time_series)][link[1]-min_des,link[0]-min_source] = 1
     return A_t
                        
 
@@ -63,14 +64,14 @@ def find_dimension(data):
 
 
 #construct adjacency matrix in the form of sparse matrix
-def counter2A(A,m=None,n=None):
+def counter2A(A,m=None,n=None,min_source=0,min_des=0):
     #A is a counter
     A_keys = np.array(list(A.keys()))
     if m is None:
         m = np.max(A_keys[:,0])+1
     if n is None:
         n = np.max(A_keys[:,1])+1
-    A_mat = coo_matrix((np.ones(A_keys.shape[0]), (A_keys[:,0], A_keys[:,1])), shape=(m, n))
+    A_mat = coo_matrix((np.ones(A_keys.shape[0]), (A_keys[:,0]-min_source, A_keys[:,1]-min_des)), shape=(m, n))
     return A_mat
 
 
@@ -511,6 +512,7 @@ def Beta_bernoulli(Z,T,alpha0=1,beta0=1):
 def design_matrix(Z,T,k):
     #Z is contain all z_it
     #T>=0 is time index
+    #k is number of observed snapshots
     m = Z.shape[0] # m is number of dstination nodes
 
     #construct of design matrix
@@ -524,56 +526,11 @@ def response_vector(Z,T):
     response_v = Z[:,T]
     return response_v
 
-
-def logit_matrix(Z,T,k,return_beta = False):
-    #Z is contain all z_it
-    #T is latest time of observed adjacency matrix
-    #k is number of past times for regression    
-            
-    #construct of design matrix
-    M = design_matrix(Z,T,k)
-
-    #construct of response vector
-    V = response_vector(Z,T)
-    
-    logit_model =  LogisticRegression(max_iter=5000)
-    logit_model.fit(M,V)
-    beta = logit_model.coef_
-    if return_beta:
-        return beta
-    
-    pred_V =  np.dot(M,beta.T)
-    exp_z = np.exp(pred_V)
-    theta_hat = exp_z /(1+exp_z)
-    
-    return theta_hat
-
-
-
         
             
 ##########################
 # Only Never Linked Pair #
 ##########################
-def resampling2222(A,size_multiplier = 2):
-    ## Sample of the negative class
-    A_keys = np.array(list(A.keys()))
-    m = np.max(A_keys[:,0])+1
-    n = np.max(A_keys[:,1])+1
-    n_edges = len(A)
-    negative_class = np.zeros((int(size_multiplier * n_edges),2))
-    negative_class[:,0] = np.random.choice(m, size=negative_class.shape[0])
-    negative_class[:,1] = np.random.choice(n, size=negative_class.shape[0])
-    ## delete repeated pairs
-    negative_class = np.unique(negative_class,axis=0)
-    ## convert into counter
-    negative_class_counter = Counter()
-    for pair in list(negative_class):
-        negative_class_counter[pair[0],pair[1]] = 0
-    ## Check that the sampled elements effectively correspond to the negative class
-    negative_class_indices = np.array([pair not in A for pair in negative_class_counter])
-    negative_class = negative_class[negative_class_indices]
-    return negative_class
 
 
 #resamling in the subset containing never observed pairs
@@ -616,46 +573,28 @@ def resampling2(A_observed,A_pred,size_multiplier = 2):
         negative_class_counter2[pair[0],pair[1]] = 0
     negative_class_indices2 = np.array([pair not in observed_links for pair in negative_class_counter2])
     negative_class = negative_class[negative_class_indices2]
+
     
-    #construct x and y
-    x = np.vstack((positive_class,negative_class))
-    y = np.concatenate((np.ones(len(positive_class)),np.ones(len(negative_class))))
-    
-    return x,y
+    return positive_class,negative_class
     
     
 
+###########################
+# Other Embedding Methods #
+###########################
+
+
+#construct A* for recrangular matrix
+def Astar(A):
+    m,n = A.shape
+    #convert sparse A as array
+    A_array = A.toarray()
+    #construct A_star
+    A_star = np.zeros((m+n,m+n))
+    
+    A_star[:m,m:] = A_array
+    A_star[m:,:m] = A_array.T
+
+    return coo_matrix(A_star)
     
     
-    
-        
-    
-    
-    
-          
-        
-    
-   
-    
-    
-
-
-
-    
-
-
-
-
-
-
-
-
-        
-        
-
-
-
-
-
-
-
